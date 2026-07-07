@@ -1,9 +1,10 @@
-const storageKey = "lumenkids-gamification-state";
+const apiBase = "/api";
 
 const profiles = [
   {
     id: "ana-lopez",
     name: "Ana López",
+    username: "ana.lopez",
     role: "Estudiante",
     grade: "7°",
     group: "A",
@@ -14,6 +15,7 @@ const profiles = [
   {
     id: "diego-ramos",
     name: "Diego Ramos",
+    username: "diego.ramos",
     role: "Estudiante",
     grade: "8°",
     group: "B",
@@ -24,6 +26,7 @@ const profiles = [
   {
     id: "camila-torres",
     name: "Camila Torres",
+    username: "camila.torres",
     role: "Docente",
     grade: "Tutoría",
     group: "B",
@@ -259,20 +262,27 @@ const defaultState = {
   loggedIn: false,
   activeProfileId: profiles[0].id,
   activeCourseId: profiles[0].courseId,
+  profiles: structuredClone(profiles),
   courses: structuredClone(courseSeed),
   profileAssignments: Object.fromEntries(profiles.map((profile) => [profile.id, profile.courseId])),
   profileProgress: createInitialProfileProgress(),
 };
 
-const state = loadState();
+let state = structuredClone(defaultState);
 
 const loginScreen = document.getElementById("loginScreen");
 const appShell = document.getElementById("appShell");
 const loginForm = document.getElementById("loginForm");
-const profileSelect = document.getElementById("profileSelect");
-const courseSelect = document.getElementById("courseSelect");
-const groupSelect = document.getElementById("groupSelect");
-const loginProfilesPreview = document.getElementById("loginProfilesPreview");
+const loginUsername = document.getElementById("loginUsername");
+const loginPassword = document.getElementById("loginPassword");
+const registerForm = document.getElementById("registerForm");
+const registerName = document.getElementById("registerName");
+const registerUsername = document.getElementById("registerUsername");
+const registerPassword = document.getElementById("registerPassword");
+const registerRole = document.getElementById("registerRole");
+const registerGrade = document.getElementById("registerGrade");
+const registerCourseSelect = document.getElementById("registerCourseSelect");
+const registerGroupSelect = document.getElementById("registerGroupSelect");
 const profileGallery = document.getElementById("profileGallery");
 const courseBoard = document.getElementById("courseBoard");
 const teacherPanel = document.getElementById("teacherPanel");
@@ -330,22 +340,19 @@ loginForm.addEventListener("submit", (event) => {
   login();
 });
 
+registerForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  registerAccount();
+});
+
+registerCourseSelect.addEventListener("change", () => {
+  syncRegisterGroupOptions(registerCourseSelect.value);
+});
+
 logoutButton.addEventListener("click", () => {
   state.loggedIn = false;
   saveState();
   renderAll();
-});
-
-profileSelect.addEventListener("change", () => {
-  const selectedProfile = getProfileById(profileSelect.value);
-  if (selectedProfile) {
-    courseSelect.value = selectedProfile.courseId;
-    syncGroupOptions(selectedProfile.courseId);
-  }
-});
-
-courseSelect.addEventListener("change", () => {
-  syncGroupOptions(courseSelect.value);
 });
 
 teacherCourseSelect?.addEventListener("change", () => {
@@ -364,12 +371,17 @@ function syncRoleButtons() {
   });
 }
 
+function getProfiles() {
+  return state.profiles || structuredClone(profiles);
+}
+
 function getCourses() {
   return state.courses || courseSeed;
 }
 
 function getProfileById(profileId) {
-  const baseProfile = profiles.find((profile) => profile.id === profileId) || profiles[0];
+  const availableProfiles = getProfiles();
+  const baseProfile = availableProfiles.find((profile) => profile.id === profileId) || availableProfiles[0];
   return {
     ...baseProfile,
     courseId: state.profileAssignments?.[baseProfile.id] || baseProfile.courseId,
@@ -393,7 +405,7 @@ function getActiveProfileProgress() {
 }
 
 function getCourseMembers(courseId) {
-  return profiles.filter((profile) => (state.profileAssignments?.[profile.id] || profile.courseId) === courseId);
+  return getProfiles().filter((profile) => (state.profileAssignments?.[profile.id] || profile.courseId) === courseId);
 }
 
 function getCourseRanking(courseId) {
@@ -402,18 +414,12 @@ function getCourseRanking(courseId) {
     .sort((left, right) => right.progress.points - left.progress.points);
 }
 
-function populateLoginControls() {
-  profileSelect.innerHTML = profiles
-    .map((profile) => `<option value="${profile.id}">${profile.name} · ${profile.role}</option>`)
-    .join("");
-
-  courseSelect.innerHTML = getCourses()
+function populateAuthControls() {
+  registerCourseSelect.innerHTML = getCourses()
     .map((course) => `<option value="${course.id}">${course.name}</option>`)
     .join("");
 
-  syncGroupOptions(state.activeCourseId);
-  profileSelect.value = state.activeProfileId;
-  courseSelect.value = state.activeCourseId;
+  syncRegisterGroupOptions(registerCourseSelect.value || getCourses()[0].id);
 
   if (teacherCourseSelect) {
     teacherCourseSelect.innerHTML = getCourses()
@@ -422,27 +428,97 @@ function populateLoginControls() {
   }
 
   if (teacherProfileAssign) {
-    teacherProfileAssign.innerHTML = profiles
+    teacherProfileAssign.innerHTML = getProfiles()
       .map((profile) => `<option value="${profile.id}">${profile.name} · ${profile.role}</option>`)
       .join("");
   }
 }
 
-function syncGroupOptions(courseId) {
+function syncRegisterGroupOptions(courseId) {
   const course = getCourseById(courseId);
   const uniqueGroups = Array.from(new Set(getCourses().map((item) => item.group)));
-  groupSelect.innerHTML = uniqueGroups
+  registerGroupSelect.innerHTML = uniqueGroups
     .map((group) => `<option value="${group}" ${group === course.group ? "selected" : ""}>Grupo ${group}</option>`)
     .join("");
 }
 
 function login() {
-  const selectedProfile = getProfileById(profileSelect.value);
-  state.activeProfileId = selectedProfile.id;
-  state.activeCourseId = courseSelect.value || selectedProfile.courseId;
-  state.loggedIn = true;
-  saveState();
-  renderAll();
+  const username = loginUsername.value.trim().toLowerCase();
+  const password = loginPassword.value;
+
+      profileGallery.innerHTML = getProfiles()
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  })
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error((await response.json()).error || "Usuario o contraseña incorrectos.");
+      }
+
+      return response.json();
+    })
+    .then((payload) => {
+      state = normalizeState(payload.state);
+      state.activeProfileId = payload.account.id;
+      state.activeCourseId = payload.account.courseId;
+      state.loggedIn = true;
+      loginPassword.value = "";
+      renderAll();
+    })
+    .catch((error) => {
+      statusLine.textContent = error.message || "No fue posible iniciar sesión.";
+    });
+}
+
+function registerAccount() {
+  const fullName = registerName.value.trim();
+  const username = registerUsername.value.trim().toLowerCase();
+  const password = registerPassword.value;
+  const role = registerRole.value;
+  const grade = registerGrade.value.trim() || (role === "Docente" ? "Tutoría" : "7°");
+  const courseId = registerCourseSelect.value || getCourses()[0].id;
+  const course = getCourseById(courseId);
+  const group = registerGroupSelect.value || course.group;
+
+  if (!fullName || !username || !password) {
+    statusLine.textContent = "Completa nombre, usuario y contraseña para crear la cuenta.";
+    return;
+  }
+
+  fetch(`${apiBase}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: fullName,
+      username,
+      password,
+      role,
+      grade,
+      courseId,
+      group,
+    }),
+  })
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error((await response.json()).error || "No fue posible crear la cuenta.");
+      }
+
+      return response.json();
+    })
+    .then((payload) => {
+      state = normalizeState(payload.state);
+      state.activeProfileId = payload.account.id;
+      state.activeCourseId = payload.account.courseId;
+      state.loggedIn = true;
+      registerForm.reset();
+      registerRole.value = "Estudiante";
+      registerGrade.value = "";
+      renderAll();
+    })
+    .catch((error) => {
+      statusLine.textContent = error.message || "No fue posible crear la cuenta.";
+    });
 }
 
 function populateTeacherForm(courseId = state.activeCourseId) {
@@ -457,7 +533,7 @@ function populateTeacherForm(courseId = state.activeCourseId) {
   teacherCourseTeacher.value = course.teacher;
   teacherCourseTheme.value = course.theme;
   teacherCourseObjective.value = course.objective;
-  teacherProfileAssign.value = getCourseMembers(course.id)[0]?.id || profiles[0].id;
+  teacherProfileAssign.value = getCourseMembers(course.id)[0]?.id || getProfiles()[0].id;
 }
 
 function saveTeacherCourseEdits() {
@@ -479,72 +555,95 @@ function saveTeacherCourseEdits() {
   courses[courseIndex] = updatedCourse;
   state.courses = courses;
 
-  const selectedProfile = profiles.find((profile) => profile.id === teacherProfileAssign.value);
+  const selectedProfile = getProfiles().find((profile) => profile.id === teacherProfileAssign.value);
   if (selectedProfile) {
     state.profileAssignments[selectedProfile.id] = updatedCourse.id;
   }
 
   state.activeCourseId = updatedCourse.id;
-  syncGroupOptions(updatedCourse.id);
+  populateAuthControls();
   saveState();
   renderAll();
 }
 
-function loadState() {
+function normalizeState(source = {}) {
+  const parsed = typeof source === "object" && source !== null ? source : {};
+  const mergedProfiles = Array.isArray(parsed.profiles) ? parsed.profiles : structuredClone(profiles);
+  const mergedCourses = Array.isArray(parsed.courses) ? parsed.courses : structuredClone(courseSeed);
+  const mergedAssignments = {
+    ...Object.fromEntries(mergedProfiles.map((profile) => [profile.id, profile.courseId])),
+    ...(parsed.profileAssignments || {}),
+  };
+  const mergedProgress = { ...createInitialProfileProgress(), ...(parsed.profileProgress || {}) };
+
+  if (!parsed.profileProgress) {
+    mergedProgress[defaultState.activeProfileId] = {
+      ...mergedProgress[defaultState.activeProfileId],
+      points: parsed.points ?? mergedProgress[defaultState.activeProfileId].points,
+      streak: parsed.streak ?? mergedProgress[defaultState.activeProfileId].streak,
+      completedChallenges: parsed.completedChallenges || mergedProgress[defaultState.activeProfileId].completedChallenges,
+      olympiadCorrect: parsed.olympiadCorrect ?? mergedProgress[defaultState.activeProfileId].olympiadCorrect,
+      olympiadReviewed: parsed.olympiadReviewed ?? mergedProgress[defaultState.activeProfileId].olympiadReviewed,
+      collabSolved: parsed.collabSolved ?? mergedProgress[defaultState.activeProfileId].collabSolved,
+      collaborationScore: parsed.collaborationScore ?? mergedProgress[defaultState.activeProfileId].collaborationScore,
+      latestBadge: parsed.latestBadge || mergedProgress[defaultState.activeProfileId].latestBadge,
+      selectedRoles: parsed.selectedRoles || mergedProgress[defaultState.activeProfileId].selectedRoles,
+      challengeProgress: {
+        ...mergedProgress[defaultState.activeProfileId].challengeProgress,
+        ...(parsed.challengeProgress || {}),
+      },
+      roundAnswers: {
+        ...mergedProgress[defaultState.activeProfileId].roundAnswers,
+        ...(parsed.roundAnswers || {}),
+      },
+    };
+  }
+
+  return {
+    ...structuredClone(defaultState),
+    ...parsed,
+    profiles: mergedProfiles,
+    courses: mergedCourses,
+    profileAssignments: mergedAssignments,
+    profileProgress: mergedProgress,
+    loggedIn: parsed.loggedIn ?? defaultState.loggedIn,
+    activeProfileId: parsed.activeProfileId || defaultState.activeProfileId,
+    activeCourseId: parsed.activeCourseId || defaultState.activeCourseId,
+  };
+}
+
+async function loadState() {
   try {
-    const raw = localStorage.getItem(storageKey);
-    if (!raw) {
+    const response = await fetch(`${apiBase}/state`, {
+      headers: { Accept: "application/json" },
+    });
+
+    if (!response.ok) {
       return structuredClone(defaultState);
     }
 
-    const parsed = JSON.parse(raw);
-    const mergedCourses = Array.isArray(parsed.courses) ? parsed.courses : structuredClone(courseSeed);
-    const mergedAssignments = {
-      ...Object.fromEntries(profiles.map((profile) => [profile.id, profile.courseId])),
-      ...(parsed.profileAssignments || {}),
-    };
-    const mergedProgress = { ...createInitialProfileProgress(), ...(parsed.profileProgress || {}) };
-
-    if (!parsed.profileProgress) {
-      mergedProgress[defaultState.activeProfileId] = {
-        ...mergedProgress[defaultState.activeProfileId],
-        points: parsed.points ?? mergedProgress[defaultState.activeProfileId].points,
-        streak: parsed.streak ?? mergedProgress[defaultState.activeProfileId].streak,
-        completedChallenges: parsed.completedChallenges || mergedProgress[defaultState.activeProfileId].completedChallenges,
-        olympiadCorrect: parsed.olympiadCorrect ?? mergedProgress[defaultState.activeProfileId].olympiadCorrect,
-        olympiadReviewed: parsed.olympiadReviewed ?? mergedProgress[defaultState.activeProfileId].olympiadReviewed,
-        collabSolved: parsed.collabSolved ?? mergedProgress[defaultState.activeProfileId].collabSolved,
-        collaborationScore: parsed.collaborationScore ?? mergedProgress[defaultState.activeProfileId].collaborationScore,
-        latestBadge: parsed.latestBadge || mergedProgress[defaultState.activeProfileId].latestBadge,
-        selectedRoles: parsed.selectedRoles || mergedProgress[defaultState.activeProfileId].selectedRoles,
-        challengeProgress: {
-          ...mergedProgress[defaultState.activeProfileId].challengeProgress,
-          ...(parsed.challengeProgress || {}),
-        },
-        roundAnswers: {
-          ...mergedProgress[defaultState.activeProfileId].roundAnswers,
-          ...(parsed.roundAnswers || {}),
-        },
-      };
-    }
-
-    return {
-      ...structuredClone(defaultState),
-      ...parsed,
-      courses: mergedCourses,
-      profileAssignments: mergedAssignments,
-      profileProgress: mergedProgress,
-      loggedIn: parsed.loggedIn ?? defaultState.loggedIn,
-      activeProfileId: parsed.activeProfileId || defaultState.activeProfileId,
-      activeCourseId: parsed.activeCourseId || defaultState.activeCourseId,
-    };
+    const payload = await response.json();
+    return normalizeState(payload);
   } catch {
     return structuredClone(defaultState);
   }
 }
 
-function saveState() {
-  localStorage.setItem(storageKey, JSON.stringify(state));
+async function saveState() {
+  try {
+    await fetch(`${apiBase}/state`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(state),
+    });
+  } catch {
+    statusLine.textContent = "No se pudo sincronizar con Neon.";
+  }
+}
+
+async function hydrateStateFromRemote() {
+  state = await loadState();
+  renderAll();
 }
 
 function levelFromPoints(points) {
@@ -587,30 +686,8 @@ function renderAuthState() {
   activeGroupChip.textContent = `${course.name} · Grupo ${course.group}`;
 }
 
-function renderLoginPreview() {
-  loginProfilesPreview.innerHTML = profiles
-    .map(
-      (profile) => `
-        <article class="profile-card ${profile.id === state.activeProfileId ? "active" : ""}">
-          <div class="profile-row">
-            <div class="profile-avatar">${profile.avatar}</div>
-            <div>
-              <strong>${profile.name}</strong>
-              <p>${profile.role} · ${profile.grade} · Grupo ${profile.group}</p>
-            </div>
-          </div>
-          <div class="profile-meta">
-            <span class="mini-chip info">${getProfileProgress(profile.id).points} pts</span>
-            <span class="mini-chip">${getProfileProgress(profile.id).streak} días</span>
-          </div>
-        </article>
-      `,
-    )
-    .join("");
-}
-
 function renderProfiles() {
-  profileGallery.innerHTML = profiles
+  profileGallery.innerHTML = getProfiles()
     .map((profile) => {
       const selected = profile.id === state.activeProfileId;
       const profileProgress = getProfileProgress(profile.id);
@@ -641,7 +718,7 @@ function renderProfiles() {
       state.activeCourseId = profile.courseId;
       state.loggedIn = true;
       saveState();
-      populateLoginControls();
+      populateAuthControls();
       renderAll();
     });
   });
@@ -681,9 +758,6 @@ function renderCourseBoard() {
   document.querySelectorAll("[data-course-switch]").forEach((button) => {
     button.addEventListener("click", () => {
       state.activeCourseId = button.dataset.courseSwitch;
-      const activeCourse = getCourseById(state.activeCourseId);
-      courseSelect.value = activeCourse.id;
-      syncGroupOptions(activeCourse.id);
       saveState();
       renderAll();
     });
@@ -933,9 +1007,8 @@ function submitCollaborativeAnswer() {
 }
 
 function renderAll() {
-  populateLoginControls();
+  populateAuthControls();
   renderAuthState();
-  renderLoginPreview();
   renderCourseBoard();
   renderProfiles();
   renderTeacherPanel();
@@ -948,3 +1021,4 @@ function renderAll() {
 }
 
 renderAll();
+void hydrateStateFromRemote();

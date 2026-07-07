@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0f172a" />
-    <title>LumenKids | Módulo de Gamificación Académica</title>
+    <title>LumenKids</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -12,51 +12,86 @@
     <div class="ambient ambient-right"></div>
 
     <section class="login-screen" id="loginScreen">
-      <div class="login-copy card">
-        <p class="eyebrow">Acceso al ecosistema</p>
-        <h1>Login, perfiles y tablero por curso/grupo.</h1>
+      <article class="auth-intro card">
+        <p class="eyebrow">Acceso local</p>
+        <h1>LumenKids</h1>
         <p class="lede">
-          Ingresa como estudiante o docente para activar un entorno personalizado con retos, progreso y un tablero
-          de grupo visible para cada curso.
+          Crea una cuenta local o inicia sesión para entrar al tablero académico con progreso, retos y panel por curso.
         </p>
-        <div class="login-highlights">
-          <article class="card-soft">
-            <strong>Perfiles</strong>
-            <p>Selecciona una identidad y conserva el progreso en el navegador.</p>
-          </article>
-          <article class="card-soft">
-            <strong>Curso / grupo</strong>
-            <p>Visualiza indicadores por clase y cambia de tablero con un clic.</p>
-          </article>
+        <div class="auth-note card-soft">
+          <strong>Sin servidor requerido</strong>
+          <p>Las cuentas se guardan en el navegador con `localStorage`.</p>
         </div>
-      </div>
+      </article>
 
-      <form class="login-form card" id="loginForm">
-        <div class="section-head compact">
-          <div>
-            <p class="eyebrow">Entrada rápida</p>
-            <h2>Activa tu perfil</h2>
+      <div class="auth-panels">
+        <form class="auth-form card" id="loginForm">
+          <div class="section-head compact login-head">
+            <div>
+              <p class="eyebrow">Iniciar sesión</p>
+              <h2>Accede a tu cuenta</h2>
+              <p class="lede">Usa tu usuario y contraseña local.</p>
+            </div>
+            <span class="section-note">Local · cuentas guardadas</span>
           </div>
-          <span class="section-note">Local · sin contraseña</span>
-        </div>
 
-        <label>
-          Perfil
-          <select id="profileSelect"></select>
-        </label>
-        <label>
-          Curso
-          <select id="courseSelect"></select>
-        </label>
-        <label>
-          Grupo
-          <select id="groupSelect"></select>
-        </label>
+          <label>
+            Usuario
+            <input id="loginUsername" type="text" autocomplete="username" />
+          </label>
+          <label>
+            Contraseña
+            <input id="loginPassword" type="password" autocomplete="current-password" />
+          </label>
 
-        <button class="primary" type="submit">Entrar al tablero</button>
+          <button class="primary" type="submit">Entrar al tablero</button>
+        </form>
 
-        <div id="loginProfilesPreview" class="profile-preview-grid"></div>
-      </form>
+        <form class="auth-form card" id="registerForm">
+          <div class="section-head compact login-head">
+            <div>
+              <p class="eyebrow">Crear cuenta</p>
+              <h2>Registro local</h2>
+              <p class="lede">Registra una cuenta nueva para estudiante o docente.</p>
+            </div>
+            <span class="section-note">Local · sin verificación</span>
+          </div>
+
+          <label>
+            Nombre completo
+            <input id="registerName" type="text" autocomplete="name" />
+          </label>
+          <label>
+            Usuario
+            <input id="registerUsername" type="text" autocomplete="username" />
+          </label>
+          <label>
+            Contraseña
+            <input id="registerPassword" type="password" autocomplete="new-password" />
+          </label>
+          <label>
+            Rol
+            <select id="registerRole">
+              <option>Estudiante</option>
+              <option>Docente</option>
+            </select>
+          </label>
+          <label>
+            Grado
+            <input id="registerGrade" type="text" placeholder="7°" />
+          </label>
+          <label>
+            Curso
+            <select id="registerCourseSelect"></select>
+          </label>
+          <label>
+            Grupo
+            <select id="registerGroupSelect"></select>
+          </label>
+
+          <button class="primary" type="submit">Crear cuenta</button>
+        </form>
+      </div>
     </section>
 
     <main class="shell hidden" id="appShell">
