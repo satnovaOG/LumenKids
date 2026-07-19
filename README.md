@@ -1,33 +1,88 @@
-# LumenKids
+# LumenKids - Ecosistema Educativo Inteligente
 
 (Este nombre es provisional y no definitivo)
 
-Prototipo del módulo de gamificación académica para un ecosistema educativo inteligente enfocado en aprendizaje autónomo, pensamiento lógico, habilidades tecnológicas y resolución colaborativa de problemas.
+LumenKids es una plataforma web diseñada para conectar estudiantes, padres y mentores mediante un ecosistema de aprendizaje seguro. Este proyecto utiliza Node.js, Express y PostgreSQL para gestionar los datos, integrando Clerk para una autenticación moderna e inyectando un diseño centrado en la usabilidad.
 
-La aplicación incluye panel para crear cuentas e iniciar sesión, perfiles activos y un tablero por curso/grupo para visualizar progreso individual y de clase. Las cuentas y el progreso se almacenan en Neon PostgreSQL a través del backend en `server.js`.
+## Estructura del Proyecto
 
-## Qué incluye
+El código está organizado siguiendo una adaptación del patrón Modelo-Vista-Controlador (MVC) para facilitar su escalabilidad:
 
-- Retos semanales con puntuación y progreso persistente.
-- Olimpiada matemática con evaluación por rondas.
-- Sistema de roles para cooperación en problemas abiertos.
-- Panel para crear cuentas e iniciar sesión.
-- Tablero de curso/grupo con indicadores de clase.
-- Progreso independiente por perfil.
-- Panel docente para editar cursos, grupos, asignaciones y ranking.
-- Insignias digitales por constancia, precisión y trabajo en equipo.
+```text
+LumenKids/
+├── src/
+│   ├── config/      # Configuración de conexiones (ej. base de datos)
+│   ├── controllers/ # Lógica de negocio de la aplicación
+│   ├── models/      # Esquemas SQL y scripts de inicialización
+│   ├── public/      # Interfaz gráfica estática (HTML, CSS, JS del cliente)
+│   ├── routes/      # Definición de endpoints de la API
+│   └── server.js    # Archivo principal de ejecución del servidor Express
+├── tests/           # Directorio para futuras pruebas unitarias
+├── .env.example     # Plantilla de variables de entorno
+├── .gitignore       # Archivos ignorados por el control de versiones
+└── package.json     # Dependencias del proyecto
+```
 
-## Neon PostgreSQL
+## Requisitos Previos
 
-1. Crea una base de datos en Neon y copia tu cadena de conexión.
-2. Duplica `.env.example` como `.env` y define `NEON_DATABASE_URL`.
-3. Ejecuta `npm install` y luego `npm start`.
-4. Abre `http://localhost:3000` para usar la app con cuentas y progreso remotos.
+Antes de ejecutar el proyecto, asegúrate de tener instalado:
+* Node.js (Versión 18 o superior recomendada)
+* Una cuenta en Neon para la base de datos PostgreSQL
+* Una cuenta en Clerk para la gestión de autenticación
 
-Si Neon no está configurado, el servidor devuelve el estado inicial incorporado, pero la creación de cuentas e inicio de sesión requieren la base de datos.
+## Instalación y Configuración
 
-## Cómo abrirlo
+1. **Instalar dependencias:**
+   Abre una terminal en la raíz del proyecto y ejecuta:
+   ```bash
+   npm install
+   ```
 
-1. Inicia el servidor con Neon configurado.
-2. Abre `http://localhost:3000` en el navegador.
-3. Crea una cuenta o inicia sesión, luego usa el panel para gestionar el progreso.
+2. **Configurar las Variables de Entorno:**
+   Copia el archivo de plantilla para crear tu propio archivo de configuración local:
+   ```bash
+   cp .env.example .env
+   ```
+   Abre el archivo `.env` y completa las variables con tus credenciales reales:
+   ```env
+   PORT=3000
+   NEON_DATABASE_URL=postgresql://USER:PASSWORD@HOST/DB?sslmode=verify-full
+   
+   CLERK_PUBLISHABLE_KEY=pk_test_tu_clave_publica
+   CLERK_SECRET_KEY=sk_test_tu_clave_privada
+   
+   ADMIN_CLERK_ID=user_tu_id_de_clerk
+   ADMIN_NOMBRE=Tu Nombre
+   ADMIN_CORREO=tu_correo@ejemplo.com
+   ```
+
+## Configuración de la Base de Datos
+
+El proyecto cuenta con scripts automatizados para levantar la estructura de datos sin necesidad de consolas SQL externas.
+
+1. **Crear las tablas relacionales:**
+   Este comando construye las tablas para Administradores, Mentores, Padres, Estudiantes y Clases, respetando las llaves foráneas.
+   ```bash
+   node src/models/initDb.js
+   ```
+
+2. **Registrar al Administrador Principal:**
+   Para poder acceder al panel de gestión, debes registrar tu cuenta de Clerk en la base de datos ejecutando:
+   ```bash
+   node src/models/crearAdmin.js
+   ```
+
+## Ejecución del Servidor
+
+Una vez completada la configuración, inicia el servidor de desarrollo:
+```bash
+node src/server.js
+```
+El ecosistema estará disponible en tu navegador visitando: `http://localhost:3000`
+
+## Características Implementadas
+
+* **Autenticación Centralizada:** Inicio de sesión y registro gestionados mediante Clerk, con interfaz completamente traducida al español.
+* **Redirección por Roles:** El sistema detecta automáticamente si el usuario es un Administrador y lo redirige a su panel exclusivo de gestión.
+* **Vinculación Familiar Automática:** Al registrarse, el estudiante recibe un código alfanumérico único. El padre utiliza este código durante su propio registro para vincular ambas cuentas en PostgreSQL de forma segura.
+* **Gestión Segura de Docentes:** El Administrador puede crear cuentas de Mentores. El sistema registra al docente en Clerk generándole una contraseña aleatoria de 12 caracteres, asegurando altos estándares de integridad.

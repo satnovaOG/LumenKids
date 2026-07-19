@@ -1,357 +1,244 @@
+<!-- Archivo: src/public/index.html -->
 <!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0f172a" />
-    <title>LumenKids</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <div class="ambient ambient-left"></div>
-    <div class="ambient ambient-right"></div>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LumenKids - Acceso</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="login-wrapper">
+        <header class="login-header">
+            <h1>LumenKids</h1>
+            <p>Ecosistema Educativo Inteligente</p>
+            <div id="user-button"></div>
+        </header>
 
-    <section class="login-screen" id="loginScreen">
-      <article class="auth-intro card">
-        <p class="eyebrow">Acceso local</p>
-        <h1>LumenKids</h1>
-        <p class="lede">
-          Crea una cuenta local o inicia sesión para entrar al tablero académico con progreso, retos y panel por curso.
-        </p>
-        <div class="auth-note card-soft">
-          <strong>Sin servidor requerido</strong>
-          <p>Las cuentas se guardan en el navegador con `localStorage`.</p>
-        </div>
-      </article>
+        <main class="login-main">
+            <div class="controls-container" id="controls-container">
+                
+                <label for="user-action">¿Qué deseas hacer?</label>
+                <select id="user-action" class="custom-select">
+                    <option value="login">Iniciar Sesión</option>
+                    <option value="signup">Crear Cuenta (Registrarse)</option>
+                </select>
 
-      <div class="auth-panels">
-        <form class="auth-form card" id="loginForm">
-          <div class="section-head compact login-head">
-            <div>
-              <p class="eyebrow">Iniciar sesión</p>
-              <h2>Accede a tu cuenta</h2>
-              <p class="lede">Usa tu usuario y contraseña local.</p>
+                <label id="label-user-role" for="user-role">Selecciona tu rol:</label>
+                <select id="user-role" class="custom-select">
+                    <option value="Estudiante">Estudiante</option>
+                    <option value="Padre">Padre</option>
+                    <option value="Mentor">Mentor</option>
+                </select>
+
+                <div id="parent-code-container" style="display: none; margin-top: 15px;">
+                    <label for="parent-code">Código de Vinculación de tu hijo:</label>
+                    <input type="text" id="parent-code" class="custom-input" placeholder="Ej: A1B2C3">
+                </div>
+
+                <div id="mentor-warning" style="display: none; margin-top: 15px; color: #ffcccc; font-size: 0.9rem;">
+                    Las cuentas de Mentor son creadas por la Administración. Por favor, selecciona "Iniciar Sesión" si ya tienes cuenta.
+                </div>
             </div>
-            <span class="section-note">Local · cuentas guardadas</span>
-          </div>
 
-          <label>
-            Usuario
-            <input id="loginUsername" type="text" autocomplete="username" />
-          </label>
-          <label>
-            Contraseña
-            <input id="loginPassword" type="password" autocomplete="current-password" />
-          </label>
+            <div id="sign-in-container" style="margin-top: 20px;"></div>
+            
+            <div id="system-message" style="display: none; margin-top: 20px; font-weight: bold; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;"></div>
+        </main>
+    </div>
 
-          <button class="primary" type="submit">Entrar al tablero</button>
-        </form>
+    <!-- Script de Clerk. Recuerda reemplazar con tu clave publica -->
+    <script 
+        async crossorigin="anonymous" 
+        data-clerk-publishable-key="pk_test_c3F1YXJlLW1hbi0yLmNsZXJrLmFjY291bnRzLmRldiQ" 
+        src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js">
+    </script>
 
-        <form class="auth-form card" id="registerForm">
-          <div class="section-head compact login-head">
-            <div>
-              <p class="eyebrow">Crear cuenta</p>
-              <h2>Registro local</h2>
-              <p class="lede">Registra una cuenta nueva para estudiante o docente.</p>
-            </div>
-            <span class="section-note">Local · sin verificación</span>
-          </div>
+    <script>
+        window.addEventListener('load', async function () {
+            await window.Clerk.load();
 
-          <label>
-            Nombre completo
-            <input id="registerName" type="text" autocomplete="name" />
-          </label>
-          <label>
-            Usuario
-            <input id="registerUsername" type="text" autocomplete="username" />
-          </label>
-          <label>
-            Contraseña
-            <input id="registerPassword" type="password" autocomplete="new-password" />
-          </label>
-          <label>
-            Rol
-            <select id="registerRole">
-              <option>Estudiante</option>
-              <option>Docente</option>
-            </select>
-          </label>
-          <label>
-            Grado
-            <input id="registerGrade" type="text" placeholder="7°" />
-          </label>
-          <label>
-            Curso
-            <select id="registerCourseSelect"></select>
-          </label>
-          <label>
-            Grupo
-            <select id="registerGroupSelect"></select>
-          </label>
+            const actionSelect = document.getElementById('user-action');
+            const roleSelect = document.getElementById('user-role');
+            const labelUserRole = document.getElementById('label-user-role');
+            const parentCodeInput = document.getElementById('parent-code');
+            const parentCodeContainer = document.getElementById('parent-code-container');
+            const mentorWarning = document.getElementById('mentor-warning');
+            const signInDiv = document.getElementById('sign-in-container');
+            const controlsContainer = document.getElementById('controls-container');
+            const systemMessage = document.getElementById('system-message');
 
-          <button class="primary" type="submit">Crear cuenta</button>
-        </form>
-      </div>
-    </section>
+            actionSelect.value = localStorage.getItem('lumenkids_action') || 'login';
+            roleSelect.value = localStorage.getItem('lumenkids_role') || 'Estudiante';
+            parentCodeInput.value = localStorage.getItem('lumenkids_parent_code') || '';
 
-    <main class="shell hidden" id="appShell">
-      <header class="topbar card-soft">
-        <div>
-          <p class="eyebrow">Sesión activa</p>
-          <h2 id="activeUserName"></h2>
-          <p id="activeUserMeta"></p>
-        </div>
-        <div class="topbar-actions">
-          <span class="badge-chip" id="activeGroupChip"></span>
-          <button class="secondary" id="logoutButton" type="button">Cerrar sesión</button>
-        </div>
-      </header>
+            function actualizarInterfaz() {
+                const accion = actionSelect.value;
+                const rol = roleSelect.value;
 
-      <section class="hero card">
-        <div class="hero-copy">
-          <p class="eyebrow">Tablero individual</p>
-          <h1>LumenKids · Ecosistema educativo inteligente.</h1>
-          <p class="lede">
-            Diseñado para estudiantes de 10 a 18 años, este módulo activa la participación con retos semanales,
-            olimpiadas matemáticas, puntuación dinámica e insignias digitales que reconocen el progreso real.
-          </p>
-          <div class="hero-actions">
-            <button class="primary" id="completeFocusChallenge">Iniciar reto semanal</button>
-            <button class="secondary" id="openOlympiad">Ir a olimpiada</button>
-          </div>
-        </div>
+                localStorage.setItem('lumenkids_action', accion);
+                localStorage.setItem('lumenkids_role', rol);
+                localStorage.setItem('lumenkids_parent_code', parentCodeInput.value);
 
-        <div class="hero-panel card-soft">
-          <div class="stat-grid" aria-label="Resumen de progreso">
-            <article>
-              <span>Puntos</span>
-              <strong id="pointsValue">0</strong>
-            </article>
-            <article>
-              <span>Racha</span>
-              <strong id="streakValue">0 días</strong>
-            </article>
-            <article>
-              <span>Nivel</span>
-              <strong id="levelValue">1</strong>
-            </article>
-            <article>
-              <span>Colaboración</span>
-              <strong id="collabValue">0%</strong>
-            </article>
-          </div>
-          <div class="progress-block">
-            <div class="progress-labels">
-              <span>Progreso al siguiente nivel</span>
-              <span id="levelProgressText">0 / 200</span>
-            </div>
-            <div class="progress-bar"><span id="levelProgressBar"></span></div>
-          </div>
-          <div class="badge-preview">
-            <span class="badge-chip" id="badgeCount">0 insignias activas</span>
-            <p id="statusLine">Comienza un reto para desbloquear tu primera insignia.</p>
-          </div>
-        </div>
-      </section>
+                parentCodeContainer.style.display = 'none';
+                mentorWarning.style.display = 'none';
+                signInDiv.style.display = 'flex';
+                systemMessage.style.display = 'none';
 
-      <section class="card module-section">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Tablero por curso/grupo</p>
-            <h2>Visión de clase y rendimiento</h2>
-          </div>
-          <span class="section-note">Selecciona un curso para actualizar el tablero</span>
-        </div>
-        <div id="courseBoard" class="board-grid"></div>
-      </section>
+                if (accion === 'login') {
+                    roleSelect.style.display = 'none';
+                    labelUserRole.style.display = 'none';
+                    
+                    // Traducción implementada mediante la propiedad localization para Iniciar Sesión
+                    window.Clerk.mountSignIn(signInDiv, {
+                        localization: {
+                            signIn: {
+                                start: {
+                                    title: "Iniciar Sesión",
+                                    subtitle: "¡Bienvenido! Por favor inicia sesión para continuar",
+                                    actionText: "¿No tienes una cuenta?",
+                                    actionLink: "Regístrate"
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    roleSelect.style.display = 'block';
+                    labelUserRole.style.display = 'block';
 
-      <section class="card module-section hidden" id="teacherPanel">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Panel docente</p>
-            <h2>Editar cursos, grupos y ranking</h2>
-          </div>
-          <span class="section-note">Visible para perfiles docentes</span>
-        </div>
+                    if (rol === 'Padre') {
+                        parentCodeContainer.style.display = 'flex';
+                        parentCodeContainer.style.flexDirection = 'column';
+                    } else if (rol === 'Mentor') {
+                        mentorWarning.style.display = 'block';
+                        signInDiv.style.display = 'none'; 
+                    }
 
-        <div class="teacher-grid">
-          <form class="teacher-form card-soft" id="teacherForm">
-            <label>
-              Curso
-              <select id="teacherCourseSelect"></select>
-            </label>
-            <label>
-              Nombre del curso
-              <input id="teacherCourseName" type="text" />
-            </label>
-            <label>
-              Grupo
-              <input id="teacherCourseGroup" type="text" maxlength="2" />
-            </label>
-            <label>
-              Docente
-              <input id="teacherCourseTeacher" type="text" />
-            </label>
-            <label>
-              Tema
-              <input id="teacherCourseTheme" type="text" />
-            </label>
-            <label>
-              Objetivo
-              <textarea id="teacherCourseObjective" rows="4"></textarea>
-            </label>
-            <label>
-              Asignar estudiante al curso
-              <select id="teacherProfileAssign"></select>
-            </label>
-            <button class="primary" type="submit">Guardar cambios</button>
-          </form>
+                    if (signInDiv.style.display !== 'none') {
+                        // Traducción implementada mediante la propiedad localization para Registro
+                        window.Clerk.mountSignUp(signInDiv, {
+                            localization: {
+                                signUp: {
+                                    start: {
+                                        title: "Crear Cuenta",
+                                        subtitle: "Únete a LumenKids",
+                                        actionText: "¿Ya tienes una cuenta?",
+                                        actionLink: "Inicia Sesión"
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+            }
 
-          <div class="teacher-side">
-            <article class="card-soft teacher-summary">
-              <p class="eyebrow">Estado del curso</p>
-              <strong id="teacherCourseSummary"></strong>
-              <p id="teacherCourseMeta"></p>
-            </article>
-            <article class="card-soft teacher-summary">
-              <p class="eyebrow">Ranking del curso</p>
-              <div id="teacherRanking" class="ranking-list"></div>
-            </article>
-          </div>
-        </div>
-      </section>
+            actionSelect.addEventListener('change', actualizarInterfaz);
+            roleSelect.addEventListener('change', actualizarInterfaz);
+            parentCodeInput.addEventListener('input', () => {
+                localStorage.setItem('lumenkids_parent_code', parentCodeInput.value);
+            });
 
-      <section class="card module-section">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Perfiles</p>
-            <h2>Identidades activas y seguimiento</h2>
-          </div>
-          <span class="section-note">Estudiantes y docentes</span>
-        </div>
-        <div id="profileGallery" class="profile-grid"></div>
-      </section>
+            // Si el usuario ya está autenticado, procesamos la lógica de redirección
+            if (window.Clerk.user) {
+                controlsContainer.style.display = 'none';
+                signInDiv.style.display = 'none';
+                
+                const userButtonDiv = document.getElementById('user-button');
+                window.Clerk.mountUserButton(userButtonDiv);
+                
+                sincronizarUsuarioConBaseDeDatos(window.Clerk.user);
+            } else {
+                actualizarInterfaz();
+            }
+        });
 
-      <section class="module-grid">
-        <article class="card module-section">
-          <div class="section-head">
-            <div>
-              <p class="eyebrow">Retos semanales</p>
-              <h2>Secuencia de participación continua</h2>
-            </div>
-            <span class="section-note">+ puntos por constancia y lógica</span>
-          </div>
-          <div id="weeklyChallenges" class="challenge-list"></div>
-        </article>
+        async function sincronizarUsuarioConBaseDeDatos(clerkUser) {
+            const accion = localStorage.getItem('lumenkids_action');
+            const rol = localStorage.getItem('lumenkids_role');
+            const codigoPadre = localStorage.getItem('lumenkids_parent_code');
+            const token = await window.Clerk.session.getToken();
+            const nombre = clerkUser.fullName || clerkUser.firstName || 'Usuario';
+            const correo = clerkUser.primaryEmailAddress ? clerkUser.primaryEmailAddress.emailAddress : '';
+            const systemMessage = document.getElementById('system-message');
 
-        <article class="card module-section spotlight" id="olympiadSection">
-          <div class="section-head">
-            <div>
-              <p class="eyebrow">Olimpiada matemática</p>
-              <h2>Demuestra razonamiento y precisión</h2>
-            </div>
-            <span class="section-note">3 rondas · bonificación por acierto completo</span>
-          </div>
-          <div id="olympiadRounds" class="olympiad-grid"></div>
-          <div class="olympiad-footer card-soft">
-            <div>
-              <strong id="olympiadScore">0/3 correctas</strong>
-              <p id="olympiadHint">Resuelve las rondas para obtener una insignia de alto rendimiento.</p>
-            </div>
-            <button class="primary" id="submitOlympiad">Evaluar desempeño</button>
-          </div>
-        </article>
-      </section>
+            if (accion === 'signup' && localStorage.getItem('lumenkids_synced') !== 'true') {
+                try {
+                    if (rol === 'Estudiante') {
+                        const response = await fetch('/api/registro-estudiante', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({ nombre: nombre })
+                        });
+                        const data = await response.json();
+                        
+                        if (response.ok) {
+                            systemMessage.style.display = 'block';
+                            systemMessage.innerHTML = `¡Registro exitoso!<br>Tu Código de Vinculación es: <span style="color: #4ade80; font-size: 1.2rem;">${data.codigo}</span><br>Compártelo con tus padres.`;
+                        }
+                    } 
+                    else if (rol === 'Padre') {
+                        const response = await fetch('/api/registro-padre', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({ nombre: nombre, correo: correo, codigoHijo: codigoPadre })
+                        });
+                        
+                        const data = await response.json();
+                        systemMessage.style.display = 'block';
+                        
+                        if (response.ok) {
+                            systemMessage.innerHTML = `¡Vinculación familiar exitosa!`;
+                            systemMessage.style.color = '#4ade80';
+                        } else {
+                            systemMessage.innerHTML = `Error: ${data.error}`;
+                            systemMessage.style.color = '#f87171';
+                        }
+                    }
+                    
+                    localStorage.setItem('lumenkids_synced', 'true');
+                } catch (error) {
+                    console.error('Error al intentar contactar al servidor:', error);
+                }
+            } else {
+                // Flujo de Inicio de Sesión (Login) con redirección
+                try {
+                    systemMessage.style.display = 'block';
+                    systemMessage.innerHTML = 'Verificando privilegios de administrador...';
 
-      <section class="card module-section collaboration">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Resolución colaborativa</p>
-            <h2>Problema abierto con roles y aportes</h2>
-          </div>
-          <span class="section-note">Recompensa por cooperación y estrategia</span>
-        </div>
+                    const checkRes = await fetch('/api/verificar-rol', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
+                    const dataCheck = await checkRes.json();
+                    
+                    // Si el servidor confirma que es administrador, redirigimos
+                    if (dataCheck.rol === 'admin') {
+                        window.location.replace('/admin.html');
+                        return; // Detenemos la ejecución
+                    } else {
+                        // Si no es administrador, mostramos un mensaje de diagnóstico con el ID
+                        systemMessage.innerHTML = `¡Bienvenido de nuevo, ${nombre}!<br><br>
+                        <div style="background: rgba(255,0,0,0.2); padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 0.9rem;">
+                            <strong>Nota de depuración:</strong> El servidor no detectó privilegios de Administrador.<br>
+                            Tu ID de Clerk actual es:<br>
+                            <span style="font-family: monospace; color: #ffcccc;">${clerkUser.id}</span><br><br>
+                            Por favor, verifica que este ID sea <strong>exactamente el mismo</strong> que tienes configurado en la variable ADMIN_CLERK_ID de tu archivo .env.
+                        </div>`;
+                    }
 
-        <div class="collab-layout">
-          <div class="collab-problem card-soft">
-            <p class="problem-tag">Caso de la semana</p>
-            <h3>Una clase organiza kits de robótica. Cada kit necesita 6 sensores y 4 motores. Si el grupo tiene 3 cajas con 24 sensores y 18 motores, ¿cuántos kits completos puede armar sin desperdicio?</h3>
-            <div class="collab-actions">
-              <button class="chip active" data-role="Analista">Analista</button>
-              <button class="chip" data-role="Estratega">Estratega</button>
-              <button class="chip" data-role="Verificador">Verificador</button>
-            </div>
-            <div class="collab-inputs">
-              <label>
-                Respuesta final
-                <input id="collabAnswer" type="number" min="0" placeholder="Ingresa el número de kits" />
-              </label>
-              <button class="primary" id="submitCollab">Enviar aporte al equipo</button>
-            </div>
-          </div>
-
-          <div class="collab-side">
-            <div class="card-soft metric-card">
-              <span>Roles activos</span>
-              <strong id="activeRoles">1</strong>
-              <p>Asignar roles mejora la puntuación colaborativa.</p>
-            </div>
-            <div class="card-soft metric-card">
-              <span>Insignia más reciente</span>
-              <strong id="latestBadge">Sin desbloqueos aún</strong>
-              <p>Las insignias reconocen esfuerzo, precisión y cooperación.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="card module-section">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Insignias digitales</p>
-            <h2>Reconocimiento visible del progreso</h2>
-          </div>
-          <span class="section-note">Se activan según comportamiento y desempeño</span>
-        </div>
-        <div id="badgeGallery" class="badge-gallery"></div>
-      </section>
-    </main>
-
-    <template id="challengeTemplate">
-      <article class="challenge card-soft">
-        <div>
-          <div class="challenge-meta">
-            <span class="pill"></span>
-            <span class="points-pill"></span>
-          </div>
-          <h3></h3>
-          <p></p>
-        </div>
-        <button class="secondary challenge-action"></button>
-      </article>
-    </template>
-
-    <template id="roundTemplate">
-      <article class="round card-soft">
-        <div class="round-head">
-          <span class="pill"></span>
-          <strong></strong>
-        </div>
-        <p class="round-question"></p>
-        <div class="round-options"></div>
-      </article>
-    </template>
-
-    <template id="badgeTemplate">
-      <article class="badge card-soft">
-        <div class="badge-icon"></div>
-        <div>
-          <h3></h3>
-          <p></p>
-        </div>
-      </article>
-    </template>
-
-    <script src="app.js"></script>
-  </body>
+                } catch (error) {
+                    console.error('Error al verificar privilegios de administrador:', error);
+                    systemMessage.innerHTML = 'Error al comunicarse con el servidor para verificar tu rol.';
+                }
+            }
+        }
+    </script>
+</body>
 </html>

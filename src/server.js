@@ -1,498 +1,259 @@
-const express = require("express");
-const path = require("path");
-const dotenv = require("dotenv");
-const { Pool } = require("pg");
-const crypto = require("crypto");
+// Archivo: src/server.js
 
-dotenv.config();
+const express = require('express');
+const path = require('path');
+require('dotenv').config();
 
-const PORT = process.env.PORT || 3000;
-const DATABASE_URL = process.env.NEON_DATABASE_URL || process.env.DATABASE_URL || "";
-const STATE_KEY = "lumenkids-state";
+const pool = require('./config/db');
+
+// Importamos las herramientas actuales de Clerk
+const { clerkMiddleware, getAuth, clerkClient } = require('@clerk/express');
 
 const app = express();
-const hasDatabase = Boolean(DATABASE_URL);
-const pool = hasDatabase
-  ? new Pool({
-      connectionString: DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
-    })
-  : null;
+const PORT = process.env.PORT || 3000;
 
-function cloneValue(value) {
-  return JSON.parse(JSON.stringify(value));
-}
+// Configuramos los middlewares básicos para entender JSON
+app.use(express.json());
 
-app.use(express.json({ limit: "2mb" }));
-app.use(express.static(__dirname));
+// Es obligatorio iniciar clerkMiddleware antes de cualquier ruta
+app.use(clerkMiddleware());
 
-const profiles = [
-  {
-    id: "ana-lopez",
-    name: "Ana López",
-    username: "ana.lopez",
-    role: "Estudiante",
-    grade: "7°",
-    group: "A",
-    courseId: "course-7a",
-    focus: "Lógica y patrones",
-    avatar: "AL",
-  },
-  {
-    id: "diego-ramos",
-    name: "Diego Ramos",
-    username: "diego.ramos",
-    role: "Estudiante",
-    grade: "8°",
-    group: "B",
-    courseId: "course-8b",
-    focus: "Cálculo y estrategia",
-    avatar: "DR",
-  },
-  {
-    id: "camila-torres",
-    name: "Camila Torres",
-    username: "camila.torres",
-    role: "Docente",
-    grade: "Tutoría",
-    group: "B",
-    courseId: "course-8b",
-    focus: "Seguimiento académico",
-    avatar: "CT",
-  },
-];
+// Configuramos la carpeta de la interfaz visual
+app.use(express.static(path.join(__dirname, 'public')));
 
-const courseSeed = [
-  {
-    id: "course-7a",
-    name: "Grado 7 · Grupo A",
-    teacher: "Camila Torres",
-    group: "A",
-    theme: "Lógica y patrones",
-    members: 24,
-    activeChallenges: 3,
-    avgPoints: 274,
-    completion: 68,
-    topStudent: "Ana López",
-    objective: "Consolidar pensamiento lógico y autonomía.",
-  },
-  {
-    id: "course-8b",
-    name: "Grado 8 · Grupo B",
-    teacher: "Julián Mora",
-    group: "B",
-    theme: "Tecnología aplicada",
-    members: 22,
-    activeChallenges: 4,
-    avgPoints: 312,
-    completion: 74,
-    topStudent: "Diego Ramos",
-    objective: "Resolver retos colaborativos con precisión.",
-  },
-  {
-    id: "course-9c",
-    name: "Grado 9 · Grupo C",
-    teacher: "Laura Pérez",
-    group: "C",
-    theme: "Matemática avanzada",
-    members: 20,
-    activeChallenges: 2,
-    avgPoints: 331,
-    completion: 81,
-    topStudent: "Sofía León",
-    objective: "Fortalecer razonamiento y análisis de datos.",
-  },
-];
-
-function createProfileProgress(overrides = {}) {
-  const base = {
-    points: 120,
-    streak: 4,
-    completedChallenges: ["pattern-paths"],
-    olympiadCorrect: 0,
-    olympiadReviewed: false,
-    collabSolved: false,
-    collaborationScore: 52,
-    latestBadge: "Primer impulso",
-    selectedRoles: ["Analista"],
-    challengeProgress: {
-      "pattern-paths": true,
-      "math-express": false,
-      "tech-map": false,
-    },
-    roundAnswers: {
-      "round-1": null,
-      "round-2": null,
-      "round-3": null,
-    },
-    ...overrides,
-  };
-
-  base.challengeProgress = {
-    "pattern-paths": false,
-    "math-express": false,
-    "tech-map": false,
-    ...(overrides.challengeProgress || {}),
-  };
-
-  base.roundAnswers = {
-    "round-1": null,
-    "round-2": null,
-    "round-3": null,
-    ...(overrides.roundAnswers || {}),
-  };
-
-  return base;
-}
-
-function createInitialProfileProgress() {
-  return {
-    "ana-lopez": createProfileProgress({
-      points: 120,
-      streak: 4,
-      completedChallenges: ["pattern-paths"],
-      challengeProgress: {
-        "pattern-paths": true,
-      },
-    }),
-    "diego-ramos": createProfileProgress({
-      points: 184,
-      streak: 6,
-      completedChallenges: ["pattern-paths", "tech-map"],
-      collaborationScore: 68,
-      latestBadge: "Maestro de constancia",
-      selectedRoles: ["Estratega", "Verificador"],
-      challengeProgress: {
-        "pattern-paths": true,
-        "tech-map": true,
-      },
-    }),
-    "camila-torres": createProfileProgress({
-      points: 96,
-      streak: 3,
-      completedChallenges: [],
-      collaborationScore: 74,
-      latestBadge: "Sin desbloqueos aún",
-      selectedRoles: ["Analista"],
-      challengeProgress: {},
-    }),
-  };
-}
-
-const defaultState = {
-  loggedIn: false,
-  activeProfileId: profiles[0].id,
-  activeCourseId: profiles[0].courseId,
-  profiles: cloneValue(profiles),
-  courses: cloneValue(courseSeed),
-  profileAssignments: Object.fromEntries(profiles.map((profile) => [profile.id, profile.courseId])),
-  profileProgress: createInitialProfileProgress(),
-};
-
-function normalizeState(source = {}) {
-  const parsed = typeof source === "object" && source !== null ? source : {};
-  return {
-    ...cloneValue(defaultState),
-    ...parsed,
-    profiles: Array.isArray(parsed.profiles) ? parsed.profiles : cloneValue(defaultState.profiles),
-    courses: Array.isArray(parsed.courses) ? parsed.courses : cloneValue(defaultState.courses),
-    profileAssignments: parsed.profileAssignments || cloneValue(defaultState.profileAssignments),
-    profileProgress: parsed.profileProgress || cloneValue(defaultState.profileProgress),
-    loggedIn: parsed.loggedIn ?? defaultState.loggedIn,
-    activeProfileId: parsed.activeProfileId || defaultState.activeProfileId,
-    activeCourseId: parsed.activeCourseId || defaultState.activeCourseId,
-  };
-}
-
-function createAvatar(name) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() || "U")
-    .join("")
-    .slice(0, 2) || "U";
-}
-
-function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
-  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
-  return `${salt}:${hash}`;
-}
-
-function verifyPassword(password, storedHash) {
-  const [salt, hash] = String(storedHash).split(":");
-  if (!salt || !hash) {
-    return false;
-  }
-
-  const computed = crypto.scryptSync(password, salt, 64).toString("hex");
-  const storedBuffer = Buffer.from(hash, "hex");
-  const computedBuffer = Buffer.from(computed, "hex");
-  if (storedBuffer.length !== computedBuffer.length) {
-    return false;
-  }
-
-  return crypto.timingSafeEqual(storedBuffer, computedBuffer);
-}
-
-async function ensureTables() {
-  if (!pool) {
-    return;
-  }
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS app_state (
-      state_key TEXT PRIMARY KEY,
-      payload JSONB NOT NULL,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS app_accounts (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      username TEXT NOT NULL UNIQUE,
-      password_hash TEXT NOT NULL,
-      role TEXT NOT NULL,
-      grade TEXT NOT NULL,
-      group_name TEXT NOT NULL,
-      course_id TEXT NOT NULL,
-      avatar TEXT NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    )
-  `);
-}
-
-async function readState() {
-  await ensureTables();
-  const result = await pool.query("SELECT payload FROM app_state WHERE state_key = $1", [STATE_KEY]);
-  return result.rows[0]?.payload ? normalizeState(result.rows[0].payload) : cloneValue(defaultState);
-}
-
-async function writeState(payload) {
-  await ensureTables();
-  await pool.query(
-    `
-      INSERT INTO app_state (state_key, payload, updated_at)
-      VALUES ($1, $2::jsonb, NOW())
-      ON CONFLICT (state_key)
-      DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()
-    `,
-    [STATE_KEY, JSON.stringify(normalizeState(payload))],
-  );
-}
-
-async function listAccounts() {
-  await ensureTables();
-  const result = await pool.query(
-    `
-      SELECT id, name, username, role, grade, group_name, course_id, avatar
-      FROM app_accounts
-      ORDER BY created_at ASC
-    `,
-  );
-  return result.rows;
-}
-
-async function buildAccountState(accountRow) {
-  const currentState = await readState();
-  const profileExists = currentState.profiles.some((profile) => profile.id === accountRow.id);
-  if (profileExists) {
-    return currentState;
-  }
-
-  const profile = {
-    id: accountRow.id,
-    name: accountRow.name,
-    username: accountRow.username,
-    role: accountRow.role,
-    grade: accountRow.grade,
-    group: accountRow.group_name,
-    courseId: accountRow.course_id,
-    focus: accountRow.role === "Docente" ? "Seguimiento académico" : "Ruta de aprendizaje personal",
-    avatar: accountRow.avatar,
-  };
-
-  const mergedState = normalizeState({
-    ...currentState,
-    profiles: [...currentState.profiles, profile],
-    profileAssignments: {
-      ...currentState.profileAssignments,
-      [profile.id]: profile.courseId,
-    },
-    profileProgress: {
-      ...currentState.profileProgress,
-      [profile.id]: createProfileProgress(),
-    },
-  });
-
-  await writeState(mergedState);
-  return mergedState;
-}
-
-app.get("/api/health", async (_request, response) => {
-  response.json({ ok: true, neonConnected: hasDatabase });
+// Prueba de conexión a la base de datos de Neon
+pool.query('SELECT NOW()', (err, res) => {
+    if (err) {
+        console.error('Error conectando a la base de datos de Neon:', err);
+    } else {
+        console.log('Conexion exitosa a la base de datos. Hora del servidor:', res.rows[0].now);
+    }
 });
 
-app.get(["/api/state", "/api/bootstrap"], async (_request, response) => {
-  if (!pool) {
-    response.json(cloneValue(defaultState));
-    return;
-  }
+function generarCodigoVinculacion() {
+    const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let codigo = '';
+    for (let i = 0; i < 6; i++) {
+        codigo += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
+    }
+    return codigo;
+}
 
-  try {
-    response.json(await readState());
-  } catch (error) {
-    response.status(500).json({ error: "Unable to read state.", detail: error.message });
-  }
-});
+// Función para generar una contraseña aleatoria segura para los docentes
+function generarPasswordTemporal() {
+    const mayusculas = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const minusculas = 'abcdefghijklmnopqrstuvwxyz';
+    const numeros = '0123456789';
+    const especiales = '!@#$%&*';
 
-app.put(["/api/state", "/api/bootstrap"], async (request, response) => {
-  if (!pool) {
-    response.status(503).json({ error: "Neon database is not configured." });
-    return;
-  }
+    let password = '';
+    
+    // Garantizamos que la contraseña cumpla con los requisitos mínimos de seguridad
+    password += mayusculas.charAt(Math.floor(Math.random() * mayusculas.length));
+    password += minusculas.charAt(Math.floor(Math.random() * minusculas.length));
+    password += numeros.charAt(Math.floor(Math.random() * numeros.length));
+    password += especiales.charAt(Math.floor(Math.random() * especiales.length));
 
-  const payload = request.body;
-  if (!payload || typeof payload !== "object") {
-    response.status(400).json({ error: "A JSON state object is required." });
-    return;
-  }
-
-  try {
-    await writeState(payload);
-
-    response.json({ ok: true });
-  } catch (error) {
-    response.status(500).json({ error: "Unable to save state.", detail: error.message });
-  }
-});
-
-app.post("/api/auth/register", async (request, response) => {
-  if (!pool) {
-    response.status(503).json({ error: "Neon database is not configured." });
-    return;
-  }
-
-  const name = String(request.body?.name || "").trim();
-  const username = String(request.body?.username || "").trim().toLowerCase();
-  const password = String(request.body?.password || "");
-  const role = String(request.body?.role || "Estudiante").trim();
-  const grade = String(request.body?.grade || "").trim();
-  const group = String(request.body?.group || "").trim();
-  const courseId = String(request.body?.courseId || "").trim() || profiles[0].courseId;
-
-  if (!name || !username || !password) {
-    response.status(400).json({ error: "Name, username and password are required." });
-    return;
-  }
-
-  try {
-    const existing = await pool.query("SELECT id FROM app_accounts WHERE username = $1", [username]);
-    if (existing.rowCount > 0) {
-      response.status(409).json({ error: "That username already exists." });
-      return;
+    // Rellenamos el resto de la contraseña hasta alcanzar 12 caracteres
+    const todosLosCaracteres = mayusculas + minusculas + numeros + especiales;
+    for (let i = 0; i < 8; i++) {
+        password += todosLosCaracteres.charAt(Math.floor(Math.random() * todosLosCaracteres.length));
     }
 
-    const id = `user-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
-    const avatar = createAvatar(name);
-    const passwordHash = hashPassword(password);
+    // Mezclamos los caracteres para que el orden sea completamente aleatorio
+    return password.split('').sort(() => 0.5 - Math.random()).join('');
+}
 
-    await ensureTables();
-    await pool.query(
-      `
-        INSERT INTO app_accounts (id, name, username, password_hash, role, grade, group_name, course_id, avatar)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      `,
-      [id, name, username, passwordHash, role, grade || role, group || "A", courseId, avatar],
-    );
+// Ruta 1: Registro Autónomo del Estudiante
+app.post('/api/registro-estudiante', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+    if (!idUsuario) return res.status(401).json({ error: 'No autorizado' });
 
-    const accountRow = {
-      id,
-      name,
-      username,
-      role,
-      grade: grade || role,
-      group_name: group || "A",
-      course_id: courseId,
-      avatar,
-    };
+    const { nombre } = req.body;
+    let codigoUnico = generarCodigoVinculacion();
+    let guardadoExitoso = false;
 
-    const state = await buildAccountState(accountRow);
-    response.status(201).json({
-      account: {
-        id,
-        name,
-        username,
-        role,
-        grade: grade || role,
-        group: group || "A",
-        courseId,
-        avatar,
-      },
-      state,
-    });
-  } catch (error) {
-    response.status(500).json({ error: "Unable to create account.", detail: error.message });
-  }
+    try {
+        // Bucle para asegurar que el código generado no exista ya en la base de datos
+        while (!guardadoExitoso) {
+            try {
+                await pool.query(
+                    'INSERT INTO Estudiante (id_estudiante, nombre, codigo_vinculacion) VALUES ($1, $2, $3)',
+                    [idUsuario, nombre, codigoUnico]
+                );
+                guardadoExitoso = true;
+            } catch (dbError) {
+                // Si el error es código duplicado (23505), generamos uno nuevo y el bucle repite
+                if (dbError.code === '23505' && dbError.constraint === 'estudiante_codigo_vinculacion_key') {
+                    codigoUnico = generarCodigoVinculacion();
+                } else {
+                    throw dbError; // Si es otro error, detenemos el proceso
+                }
+            }
+        }
+        res.status(200).json({ mensaje: 'Estudiante registrado', codigo: codigoUnico });
+    } catch (error) {
+        console.error('Error en registro de estudiante:', error);
+        res.status(500).json({ error: 'Fallo al registrar estudiante.' });
+    }
 });
 
-app.post("/api/auth/login", async (request, response) => {
-  if (!pool) {
-    response.status(503).json({ error: "Neon database is not configured." });
-    return;
-  }
+// Ruta 2: Registro del Padre con Validación
+// Archivo: src/server.js (Reemplazar la Ruta 2: Registro del Padre)
 
-  const username = String(request.body?.username || "").trim().toLowerCase();
-  const password = String(request.body?.password || "");
-
-  if (!username || !password) {
-    response.status(400).json({ error: "Username and password are required." });
-    return;
-  }
-
-  try {
-    await ensureTables();
-    const result = await pool.query(
-      `
-        SELECT id, name, username, password_hash, role, grade, group_name, course_id, avatar
-        FROM app_accounts
-        WHERE username = $1
-        LIMIT 1
-      `,
-      [username],
-    );
-
-    const accountRow = result.rows[0];
-    if (!accountRow || !verifyPassword(password, accountRow.password_hash)) {
-      response.status(401).json({ error: "Usuario o contraseña incorrectos." });
-      return;
+app.post('/api/registro-padre', async (req, res) => {
+    console.log('--- INICIO: Procesando registro de Padre ---');
+    
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+    
+    if (!idUsuario) {
+        console.log('Fallo: No se detectó autenticación de Clerk.');
+        return res.status(401).json({ error: 'No autorizado' });
     }
 
-    const state = await buildAccountState(accountRow);
-    response.json({
-      account: {
-        id: accountRow.id,
-        name: accountRow.name,
-        username: accountRow.username,
-        role: accountRow.role,
-        grade: accountRow.grade,
-        group: accountRow.group_name,
-        courseId: accountRow.course_id,
-        avatar: accountRow.avatar,
-      },
-      state,
-    });
-  } catch (error) {
-    response.status(500).json({ error: "Unable to authenticate.", detail: error.message });
-  }
+    const { nombre, correo, codigoHijo } = req.body;
+    
+    // Medidas de seguridad y limpieza de datos
+    const codigoLimpio = codigoHijo ? codigoHijo.trim().toUpperCase() : '';
+    const correoSeguro = correo || `sin-correo-${idUsuario}@lumenkids.local`;
+
+    console.log('Datos recibidos:', { nombre, correoSeguro, codigoLimpio });
+
+    try {
+        // 1. Verificar si el código ingresado existe
+        console.log('Paso 1: Buscando al estudiante con el código proporcionado...');
+        const resEstudiante = await pool.query(
+            'SELECT id_estudiante FROM Estudiante WHERE codigo_vinculacion = $1',
+            [codigoLimpio]
+        );
+
+        if (resEstudiante.rows.length === 0) {
+            console.log('Fallo: El código no existe en la tabla Estudiante.');
+            return res.status(404).json({ error: 'Código de vinculación inválido o estudiante no encontrado.' });
+        }
+
+        const idEstudiante = resEstudiante.rows[0].id_estudiante;
+        console.log('Paso 1 Completado: Estudiante encontrado (ID:', idEstudiante, ')');
+
+        // 2. Guardar al padre en la base de datos
+        console.log('Paso 2: Insertando datos del Padre en PostgreSQL...');
+        await pool.query(
+            'INSERT INTO Padre (id_padre, nombre, correo) VALUES ($1, $2, $3) ON CONFLICT (id_padre) DO NOTHING',
+            [idUsuario, nombre, correoSeguro]
+        );
+        console.log('Paso 2 Completado: Padre guardado exitosamente.');
+
+        // 3. Vincular al hijo con su nuevo padre
+        console.log('Paso 3: Actualizando el registro del estudiante con el ID del padre...');
+        await pool.query(
+            'UPDATE Estudiante SET id_padre = $1 WHERE id_estudiante = $2',
+            [idUsuario, idEstudiante]
+        );
+        console.log('Paso 3 Completado: Vinculación familiar guardada.');
+
+        console.log('--- FIN: Registro de Padre procesado con éxito ---');
+        res.status(200).json({ mensaje: 'Vinculación familiar exitosa.' });
+    } catch (error) {
+        console.error('Error crítico en registro de padre:', error);
+        res.status(500).json({ error: 'Fallo al registrar al padre.' });
+    }
 });
 
-app.get("*", (_request, response) => {
-  response.sendFile(path.join(__dirname, "index.html"));
+app.post('/api/crear-mentor', async (req, res) => {
+    console.log('--- INICIO: Procesando creación de Mentor ---');
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+
+    if (!idUsuario) {
+        return res.status(401).json({ error: 'No autorizado. Debes iniciar sesión.' });
+    }
+
+    const { nombre, correo } = req.body;
+
+    try {
+        // 1. Verificación estricta de privilegios
+        console.log('Verificando privilegios de Administrador para el ID:', idUsuario);
+        const resAdmin = await pool.query(
+            'SELECT id_admin FROM Administrador WHERE id_admin = $1',
+            [idUsuario]
+        );
+
+        if (resAdmin.rows.length === 0) {
+            console.log('Fallo: Intento de acceso no autorizado a funciones de administrador.');
+            return res.status(403).json({ error: 'Acceso denegado. No posees permisos de Administrador.' });
+        }
+
+        console.log('Privilegios confirmados. Creando cuenta en Clerk...');
+        
+        // 2. Crear la cuenta real en el sistema de Clerk
+        // Se asigna una contraseña temporal estándar que el docente podrá cambiar luego
+        const passwordAleatoria = generarPasswordTemporal();
+        
+        const nuevoUsuarioClerk = await clerkClient.users.createUser({
+            firstName: nombre,
+            emailAddress: [correo],
+            password: passwordAleatoria
+        });
+        
+        const idMentorReal = nuevoUsuarioClerk.id;
+        console.log('Cuenta creada en Clerk exitosamente con el ID:', idMentorReal);
+
+        // 3. Insertar el mentor en la base de datos vinculándolo con el administrador que lo creó
+        console.log('Guardando al docente en PostgreSQL...');
+        await pool.query(
+            'INSERT INTO Mentor (id_mentor, nombre, correo, id_admin) VALUES ($1, $2, $3, $4)',
+            [idMentorReal, nombre, correo, idUsuario]
+        );
+
+        console.log('--- FIN: Docente creado con éxito ---');
+        
+        // Devolvemos la contraseña generada al panel del administrador
+        res.status(200).json({ 
+            mensaje: `Docente registrado exitosamente.<br>Su contraseña temporal es: <strong>${passwordAleatoria}</strong>` 
+        });
+    } catch (error) {
+        console.error('Error al intentar registrar al docente:', error);
+        
+        // Si el error viene de Clerk (ej. el correo ya existe), extraemos el mensaje
+        if (error.errors && error.errors.length > 0) {
+            return res.status(400).json({ error: error.errors[0].message });
+        }
+        
+        res.status(500).json({ error: 'Fallo interno al registrar al docente.' });
+    }
 });
 
+app.get('/api/verificar-rol', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+
+    if (!idUsuario) {
+        return res.status(401).json({ error: 'No autorizado' });
+    }
+
+    try {
+        // Consultamos si el usuario actual está registrado como Administrador
+        const resAdmin = await pool.query(
+            'SELECT id_admin FROM Administrador WHERE id_admin = $1',
+            [idUsuario]
+        );
+
+        if (resAdmin.rows.length > 0) {
+            return res.status(200).json({ rol: 'admin' });
+        }
+
+        // Si en el futuro necesitas redirigir a otros roles, puedes agregar las consultas aquí.
+        // Por ahora, si no es administrador, devolvemos un rol general.
+        res.status(200).json({ rol: 'usuario' });
+    } catch (error) {
+        console.error('Error al verificar el rol:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// Inicializamos el servidor
 app.listen(PORT, () => {
-  console.log(`LumenKids server listening on http://localhost:${PORT}`);
+    console.log(`Servidor de LumenKids ejecutandose y escuchando en http://localhost:${PORT}`);
 });
