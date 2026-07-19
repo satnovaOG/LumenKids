@@ -1,0 +1,101 @@
+<!-- Archivo: src/public/admin.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LumenKids - Panel de Administración</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="login-wrapper">
+        <header class="login-header">
+            <h1>Panel Administrativo</h1>
+            <p>Gestión de Docentes (Mentores)</p>
+            <div id="user-button"></div>
+        </header>
+
+        <main class="login-main">
+            <!-- Formulario de creación de docentes -->
+            <form id="form-crear-mentor" class="controls-container">
+                <label for="nombre-mentor">Nombre Completo del Docente:</label>
+                <input type="text" id="nombre-mentor" class="custom-input" placeholder="Ej: Ana María López" required>
+
+                <label for="correo-mentor">Correo Electrónico:</label>
+                <input type="email" id="correo-mentor" class="custom-input" placeholder="Ej: ana.lopez@ejemplo.com" required>
+
+                <button type="submit" class="custom-button" style="margin-top: 15px;">Crear Docente</button>
+            </form>
+
+            <!-- Contenedor para mostrar el resultado de la operación -->
+            <div id="admin-message" style="display: none; margin-top: 20px; font-weight: bold; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;"></div>
+        </main>
+    </div>
+
+    <!-- Script de Clerk. Recuerda reemplazar con tu clave pública -->
+    <script 
+        async crossorigin="anonymous" 
+        data-clerk-publishable-key="pk_test_c3F1YXJlLW1hbi0yLmNsZXJrLmFjY291bnRzLmRldiQ" 
+        src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js">
+    </script>
+
+    <script>
+        window.addEventListener('load', async function () {
+            await window.Clerk.load();
+
+            // Si el usuario no ha iniciado sesión, lo redirigimos a la página principal
+            if (!window.Clerk.user) {
+                window.location.href = '/index.html';
+                return;
+            }
+
+            // Mostramos el botón de perfil de Clerk con la redirección de cierre de sesión
+            const userButtonDiv = document.getElementById('user-button');
+            window.Clerk.mountUserButton(userButtonDiv, {
+                afterSignOutUrl: '/index.html'
+            });
+
+            
+            const formCrearMentor = document.getElementById('form-crear-mentor');
+            const adminMessage = document.getElementById('admin-message');
+
+            formCrearMentor.addEventListener('submit', async (e) => {
+                e.preventDefault(); // Evita que la página se recargue al enviar el formulario
+                
+                const nombre = document.getElementById('nombre-mentor').value;
+                const correo = document.getElementById('correo-mentor').value;
+                const token = await window.Clerk.session.getToken();
+
+                try {
+                    const response = await fetch('/api/crear-mentor', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ nombre: nombre, correo: correo })
+                    });
+
+                    const data = await response.json();
+                    adminMessage.style.display = 'block';
+
+                    if (response.ok) {
+                        adminMessage.innerHTML = data.mensaje;
+                        adminMessage.style.color = '#4ade80'; // Verde para éxito
+                        formCrearMentor.reset(); // Limpiamos el formulario
+                    } else {
+                        adminMessage.innerHTML = `Error: ${data.error}`;
+                        adminMessage.style.color = '#f87171'; // Rojo para error
+                    }
+                } catch (error) {
+                    console.error('Error al procesar la solicitud:', error);
+                    adminMessage.style.display = 'block';
+                    adminMessage.innerHTML = 'Error de comunicación con el servidor.';
+                    adminMessage.style.color = '#f87171';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
