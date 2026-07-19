@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f172a" />
+    <title>LumenKids</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-left"></div>
+    <div class="ambient ambient-right"></div>
+
+    <section class="login-screen" id="loginScreen">
+      <article class="auth-intro card">
+        <p class="eyebrow">Acceso local</p>
+        <h1>LumenKids</h1>
+        <p class="lede">
+          Crea una cuenta local o inicia sesión para entrar al tablero académico con progreso, retos y panel por curso.
+        </p>
+        <div class="auth-note card-soft">
+          <strong>Sin servidor requerido</strong>
+          <p>Las cuentas se guardan en el navegador con `localStorage`.</p>
+        </div>
+      </article>
+
+      <div class="auth-panels">
+        <form class="auth-form card" id="loginForm">
+          <div class="section-head compact login-head">
+            <div>
+              <p class="eyebrow">Iniciar sesión</p>
+              <h2>Accede a tu cuenta</h2>
+              <p class="lede">Usa tu usuario y contraseña local.</p>
+            </div>
+            <span class="section-note">Local · cuentas guardadas</span>
+          </div>
+
+          <label>
+            Usuario
+            <input id="loginUsername" type="text" autocomplete="username" />
+          </label>
+          <label>
+            Contraseña
+            <input id="loginPassword" type="password" autocomplete="current-password" />
+          </label>
+
+          <button class="primary" type="submit">Entrar al tablero</button>
+        </form>
+
+        <form class="auth-form card" id="registerForm">
+          <div class="section-head compact login-head">
+            <div>
+              <p class="eyebrow">Crear cuenta</p>
+              <h2>Registro local</h2>
+              <p class="lede">Registra una cuenta nueva para estudiante o docente.</p>
+            </div>
+            <span class="section-note">Local · sin verificación</span>
+          </div>
+
+          <label>
+            Nombre completo
+            <input id="registerName" type="text" autocomplete="name" />
+          </label>
+          <label>
+            Usuario
+            <input id="registerUsername" type="text" autocomplete="username" />
+          </label>
+          <label>
+            Contraseña
+            <input id="registerPassword" type="password" autocomplete="new-password" />
+          </label>
+          <label>
+            Rol
+            <select id="registerRole">
+              <option>Estudiante</option>
+              <option>Docente</option>
+            </select>
+          </label>
+          <label>
+            Grado
+            <input id="registerGrade" type="text" placeholder="7°" />
+          </label>
+          <label>
+            Curso
+            <select id="registerCourseSelect"></select>
+          </label>
+          <label>
+            Grupo
+            <select id="registerGroupSelect"></select>
+          </label>
+
+          <button class="primary" type="submit">Crear cuenta</button>
+        </form>
+      </div>
+    </section>
+
+    <main class="shell hidden" id="appShell">
+      <header class="topbar card-soft">
+        <div>
+          <p class="eyebrow">Sesión activa</p>
+          <h2 id="activeUserName"></h2>
+          <p id="activeUserMeta"></p>
+        </div>
+        <div class="topbar-actions">
+          <span class="badge-chip" id="activeGroupChip"></span>
+          <button class="secondary" id="logoutButton" type="button">Cerrar sesión</button>
+        </div>
+      </header>
+
+      <section class="hero card">
+        <div class="hero-copy">
+          <p class="eyebrow">Tablero individual</p>
+          <h1>LumenKids · Ecosistema educativo inteligente.</h1>
+          <p class="lede">
+            Diseñado para estudiantes de 10 a 18 años, este módulo activa la participación con retos semanales,
+            olimpiadas matemáticas, puntuación dinámica e insignias digitales que reconocen el progreso real.
+          </p>
+          <div class="hero-actions">
+            <button class="primary" id="completeFocusChallenge">Iniciar reto semanal</button>
+            <button class="secondary" id="openOlympiad">Ir a olimpiada</button>
+          </div>
+        </div>
+
+        <div class="hero-panel card-soft">
+          <div class="stat-grid" aria-label="Resumen de progreso">
+            <article>
+              <span>Puntos</span>
+              <strong id="pointsValue">0</strong>
+            </article>
+            <article>
+              <span>Racha</span>
+              <strong id="streakValue">0 días</strong>
+            </article>
+            <article>
+              <span>Nivel</span>
+              <strong id="levelValue">1</strong>
+            </article>
+            <article>
+              <span>Colaboración</span>
+              <strong id="collabValue">0%</strong>
+            </article>
+          </div>
+          <div class="progress-block">
+            <div class="progress-labels">
+              <span>Progreso al siguiente nivel</span>
+              <span id="levelProgressText">0 / 200</span>
+            </div>
+            <div class="progress-bar"><span id="levelProgressBar"></span></div>
+          </div>
+          <div class="badge-preview">
+            <span class="badge-chip" id="badgeCount">0 insignias activas</span>
+            <p id="statusLine">Comienza un reto para desbloquear tu primera insignia.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card module-section">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Tablero por curso/grupo</p>
+            <h2>Visión de clase y rendimiento</h2>
+          </div>
+          <span class="section-note">Selecciona un curso para actualizar el tablero</span>
+        </div>
+        <div id="courseBoard" class="board-grid"></div>
+      </section>
+
+      <section class="card module-section hidden" id="teacherPanel">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Panel docente</p>
+            <h2>Editar cursos, grupos y ranking</h2>
+          </div>
+          <span class="section-note">Visible para perfiles docentes</span>
+        </div>
+
+        <div class="teacher-grid">
+          <form class="teacher-form card-soft" id="teacherForm">
+            <label>
+              Curso
+              <select id="teacherCourseSelect"></select>
+            </label>
+            <label>
+              Nombre del curso
+              <input id="teacherCourseName" type="text" />
+            </label>
+            <label>
+              Grupo
+              <input id="teacherCourseGroup" type="text" maxlength="2" />
+            </label>
+            <label>
+              Docente
+              <input id="teacherCourseTeacher" type="text" />
+            </label>
+            <label>
+              Tema
+              <input id="teacherCourseTheme" type="text" />
+            </label>
+            <label>
+              Objetivo
+              <textarea id="teacherCourseObjective" rows="4"></textarea>
+            </label>
+            <label>
+              Asignar estudiante al curso
+              <select id="teacherProfileAssign"></select>
+            </label>
+            <button class="primary" type="submit">Guardar cambios</button>
+          </form>
+
+          <div class="teacher-side">
+            <article class="card-soft teacher-summary">
+              <p class="eyebrow">Estado del curso</p>
+              <strong id="teacherCourseSummary"></strong>
+              <p id="teacherCourseMeta"></p>
+            </article>
+            <article class="card-soft teacher-summary">
+              <p class="eyebrow">Ranking del curso</p>
+              <div id="teacherRanking" class="ranking-list"></div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="card module-section">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Perfiles</p>
+            <h2>Identidades activas y seguimiento</h2>
+          </div>
+          <span class="section-note">Estudiantes y docentes</span>
+        </div>
+        <div id="profileGallery" class="profile-grid"></div>
+      </section>
+
+      <section class="module-grid">
+        <article class="card module-section">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Retos semanales</p>
+              <h2>Secuencia de participación continua</h2>
+            </div>
+            <span class="section-note">+ puntos por constancia y lógica</span>
+          </div>
+          <div id="weeklyChallenges" class="challenge-list"></div>
+        </article>
+
+        <article class="card module-section spotlight" id="olympiadSection">
+          <div class="section-head">
+            <div>
+              <p class="eyebrow">Olimpiada matemática</p>
+              <h2>Demuestra razonamiento y precisión</h2>
+            </div>
+            <span class="section-note">3 rondas · bonificación por acierto completo</span>
+          </div>
+          <div id="olympiadRounds" class="olympiad-grid"></div>
+          <div class="olympiad-footer card-soft">
+            <div>
+              <strong id="olympiadScore">0/3 correctas</strong>
+              <p id="olympiadHint">Resuelve las rondas para obtener una insignia de alto rendimiento.</p>
+            </div>
+            <button class="primary" id="submitOlympiad">Evaluar desempeño</button>
+          </div>
+        </article>
+      </section>
+
+      <section class="card module-section collaboration">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Resolución colaborativa</p>
+            <h2>Problema abierto con roles y aportes</h2>
+          </div>
+          <span class="section-note">Recompensa por cooperación y estrategia</span>
+        </div>
+
+        <div class="collab-layout">
+          <div class="collab-problem card-soft">
+            <p class="problem-tag">Caso de la semana</p>
+            <h3>Una clase organiza kits de robótica. Cada kit necesita 6 sensores y 4 motores. Si el grupo tiene 3 cajas con 24 sensores y 18 motores, ¿cuántos kits completos puede armar sin desperdicio?</h3>
+            <div class="collab-actions">
+              <button class="chip active" data-role="Analista">Analista</button>
+              <button class="chip" data-role="Estratega">Estratega</button>
+              <button class="chip" data-role="Verificador">Verificador</button>
+            </div>
+            <div class="collab-inputs">
+              <label>
+                Respuesta final
+                <input id="collabAnswer" type="number" min="0" placeholder="Ingresa el número de kits" />
+              </label>
+              <button class="primary" id="submitCollab">Enviar aporte al equipo</button>
+            </div>
+          </div>
+
+          <div class="collab-side">
+            <div class="card-soft metric-card">
+              <span>Roles activos</span>
+              <strong id="activeRoles">1</strong>
+              <p>Asignar roles mejora la puntuación colaborativa.</p>
+            </div>
+            <div class="card-soft metric-card">
+              <span>Insignia más reciente</span>
+              <strong id="latestBadge">Sin desbloqueos aún</strong>
+              <p>Las insignias reconocen esfuerzo, precisión y cooperación.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card module-section">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Insignias digitales</p>
+            <h2>Reconocimiento visible del progreso</h2>
+          </div>
+          <span class="section-note">Se activan según comportamiento y desempeño</span>
+        </div>
+        <div id="badgeGallery" class="badge-gallery"></div>
+      </section>
+    </main>
+
+    <template id="challengeTemplate">
+      <article class="challenge card-soft">
+        <div>
+          <div class="challenge-meta">
+            <span class="pill"></span>
+            <span class="points-pill"></span>
+          </div>
+          <h3></h3>
+          <p></p>
+        </div>
+        <button class="secondary challenge-action"></button>
+      </article>
+    </template>
+
+    <template id="roundTemplate">
+      <article class="round card-soft">
+        <div class="round-head">
+          <span class="pill"></span>
+          <strong></strong>
+        </div>
+        <p class="round-question"></p>
+        <div class="round-options"></div>
+      </article>
+    </template>
+
+    <template id="badgeTemplate">
+      <article class="badge card-soft">
+        <div class="badge-icon"></div>
+        <div>
+          <h3></h3>
+          <p></p>
+        </div>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
