@@ -253,6 +253,13 @@ app.get('/api/verificar-rol', async (req, res) => {
     }
 });
 
+app.get('/api/config', (req, res) => {
+    // Es seguro enviar la Publishable Key, pero NUNCA envíes la Secret Key aquí.
+    res.json({ 
+        clerkPublishableKey: process.env.CLERK_PUBLISHABLE_KEY 
+    });
+});
+
 // Inicializamos el servidor
 app.listen(PORT, () => {
     console.log(`Servidor de LumenKids ejecutandose y escuchando en http://localhost:${PORT}`);

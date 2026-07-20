@@ -18,7 +18,6 @@
 
         <main class="login-main">
             <div class="controls-container" id="controls-container">
-                
                 <label for="user-action">¿Qué deseas hacer?</label>
                 <select id="user-action" class="custom-select">
                     <option value="login">Iniciar Sesión</option>
@@ -43,22 +42,38 @@
             </div>
 
             <div id="sign-in-container" style="margin-top: 20px;"></div>
-            
             <div id="system-message" style="display: none; margin-top: 20px; font-weight: bold; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;"></div>
         </main>
     </div>
 
-    <!-- Script de Clerk. Recuerda reemplazar con tu clave publica -->
-    <script 
-        async crossorigin="anonymous" 
-        data-clerk-publishable-key="pk_test_c3F1YXJlLW1hbi0yLmNsZXJrLmFjY291bnRzLmRldiQ" 
-        src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js">
-    </script>
-
     <script>
+        // Lógica de carga dinámica de Clerk
         window.addEventListener('load', async function () {
-            await window.Clerk.load();
+            try {
+                const configRes = await fetch('/api/config');
+                const configData = await configRes.json();
 
+                const clerkScript = document.createElement('script');
+                clerkScript.src = "https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js";
+                clerkScript.setAttribute('data-clerk-publishable-key', configData.clerkPublishableKey);
+                clerkScript.async = true;
+                clerkScript.crossOrigin = "anonymous";
+                
+                clerkScript.onload = async function() {
+                    await window.Clerk.load();
+                    inicializarPagina(); 
+                };
+
+                document.head.appendChild(clerkScript);
+            } catch (error) {
+                console.error("Error al cargar la configuración de Clerk:", error);
+                document.getElementById('system-message').style.display = 'block';
+                document.getElementById('system-message').innerHTML = 'Error de conexión con el servidor.';
+            }
+        });
+
+        // Lógica principal de la interfaz
+        function inicializarPagina() {
             const actionSelect = document.getElementById('user-action');
             const roleSelect = document.getElementById('user-role');
             const labelUserRole = document.getElementById('label-user-role');
@@ -67,7 +82,6 @@
             const mentorWarning = document.getElementById('mentor-warning');
             const signInDiv = document.getElementById('sign-in-container');
             const controlsContainer = document.getElementById('controls-container');
-            const systemMessage = document.getElementById('system-message');
 
             actionSelect.value = localStorage.getItem('lumenkids_action') || 'login';
             roleSelect.value = localStorage.getItem('lumenkids_role') || 'Estudiante';
@@ -84,13 +98,12 @@
                 parentCodeContainer.style.display = 'none';
                 mentorWarning.style.display = 'none';
                 signInDiv.style.display = 'flex';
-                systemMessage.style.display = 'none';
+                document.getElementById('system-message').style.display = 'none';
 
                 if (accion === 'login') {
                     roleSelect.style.display = 'none';
                     labelUserRole.style.display = 'none';
                     
-                    // Traducción implementada mediante la propiedad localization para Iniciar Sesión
                     window.Clerk.mountSignIn(signInDiv, {
                         localization: {
                             signIn: {
@@ -116,7 +129,6 @@
                     }
 
                     if (signInDiv.style.display !== 'none') {
-                        // Traducción implementada mediante la propiedad localization para Registro
                         window.Clerk.mountSignUp(signInDiv, {
                             localization: {
                                 signUp: {
@@ -139,7 +151,6 @@
                 localStorage.setItem('lumenkids_parent_code', parentCodeInput.value);
             });
 
-            // Si el usuario ya está autenticado, procesamos la lógica de redirección
             if (window.Clerk.user) {
                 controlsContainer.style.display = 'none';
                 signInDiv.style.display = 'none';
@@ -151,7 +162,7 @@
             } else {
                 actualizarInterfaz();
             }
-        });
+        }
 
         async function sincronizarUsuarioConBaseDeDatos(clerkUser) {
             const accion = localStorage.getItem('lumenkids_action');
@@ -167,10 +178,7 @@
                     if (rol === 'Estudiante') {
                         const response = await fetch('/api/registro-estudiante', {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                            },
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                             body: JSON.stringify({ nombre: nombre })
                         });
                         const data = await response.json();
@@ -183,10 +191,7 @@
                     else if (rol === 'Padre') {
                         const response = await fetch('/api/registro-padre', {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                            },
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                             body: JSON.stringify({ nombre: nombre, correo: correo, codigoHijo: codigoPadre })
                         });
                         
@@ -201,16 +206,14 @@
                             systemMessage.style.color = '#f87171';
                         }
                     }
-                    
                     localStorage.setItem('lumenkids_synced', 'true');
                 } catch (error) {
-                    console.error('Error al intentar contactar al servidor:', error);
+                    console.error('Error de comunicación con el servidor:', error);
                 }
             } else {
-                // Flujo de Inicio de Sesión (Login) con redirección
                 try {
                     systemMessage.style.display = 'block';
-                    systemMessage.innerHTML = 'Verificando privilegios de administrador...';
+                    systemMessage.innerHTML = 'Verificando privilegios...';
 
                     const checkRes = await fetch('/api/verificar-rol', {
                         headers: { 'Authorization': `Bearer ${token}` }
@@ -218,24 +221,20 @@
                     
                     const dataCheck = await checkRes.json();
                     
-                    // Si el servidor confirma que es administrador, redirigimos
                     if (dataCheck.rol === 'admin') {
                         window.location.replace('/admin.html');
-                        return; // Detenemos la ejecución
+                        return; 
                     } else {
-                        // Si no es administrador, mostramos un mensaje de diagnóstico con el ID
                         systemMessage.innerHTML = `¡Bienvenido de nuevo, ${nombre}!<br><br>
                         <div style="background: rgba(255,0,0,0.2); padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 0.9rem;">
                             <strong>Nota de depuración:</strong> El servidor no detectó privilegios de Administrador.<br>
                             Tu ID de Clerk actual es:<br>
                             <span style="font-family: monospace; color: #ffcccc;">${clerkUser.id}</span><br><br>
-                            Por favor, verifica que este ID sea <strong>exactamente el mismo</strong> que tienes configurado en la variable ADMIN_CLERK_ID de tu archivo .env.
+                            Por favor, verifica que este ID sea exactamente igual en tu .env
                         </div>`;
                     }
-
                 } catch (error) {
-                    console.error('Error al verificar privilegios de administrador:', error);
-                    systemMessage.innerHTML = 'Error al comunicarse con el servidor para verificar tu rol.';
+                    systemMessage.innerHTML = 'Error al comunicarse con el servidor.';
                 }
             }
         }
