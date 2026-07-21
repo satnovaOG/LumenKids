@@ -102,11 +102,17 @@ app.post('/api/registro-estudiante', async (req, res) => {
 // Ruta 2: Registro del Padre con Validación
 // Archivo: src/server.js (Reemplazar la Ruta 2: Registro del Padre)
 
+// Ruta 2: Registro del Padre con Validación Mejorada
+// Ruta 2: Registro del Padre con Validación Mejorada y Rastreo
 app.post('/api/registro-padre', async (req, res) => {
-    console.log('--- INICIO: Procesando registro de Padre ---');
+    console.log('\n--- INICIO: Procesando registro de Padre ---');
     
     const auth = getAuth(req);
     const idUsuario = auth.userId;
+    
+    // RASTREO: Imprimimos exactamente lo que el frontend nos envió
+    console.log('Datos recibidos en el servidor (req.body):', req.body);
+    console.log('ID del usuario detectado por Clerk:', idUsuario);
     
     if (!idUsuario) {
         console.log('Fallo: No se detectó autenticación de Clerk.');
@@ -119,33 +125,45 @@ app.post('/api/registro-padre', async (req, res) => {
     const codigoLimpio = codigoHijo ? codigoHijo.trim().toUpperCase() : '';
     const correoSeguro = correo || `sin-correo-${idUsuario}@lumenkids.local`;
 
-    console.log('Datos recibidos:', { nombre, correoSeguro, codigoLimpio });
-
     try {
-        // 1. Verificar si el código ingresado existe
-        console.log('Paso 1: Buscando al estudiante con el código proporcionado...');
+        // PASO 1: Guardar SIEMPRE al padre en la base de datos primero
+        console.log('Paso 1: Intentando insertar en PostgreSQL...');
+        console.log(`Valores a guardar -> ID: ${idUsuario}, Nombre: ${nombre}, Correo: ${correoSeguro}`);
+        
+        const resultado = await pool.query(
+            'INSERT INTO Padre (id_padre, nombre, correo) VALUES ($1, $2, $3) ON CONFLICT (id_padre) DO NOTHING RETURNING *',
+            [idUsuario, nombre, correoSeguro]
+        );
+        
+        if (resultado.rowCount > 0) {
+            console.log('¡Éxito! Nuevo Padre guardado exitosamente en Neon.');
+        } else {
+            console.log('Aviso: El Padre ya existía en la base de datos (se ignoró la inserción).');
+        }
+        // PASO 2: Verificar si proporcionó un código de estudiante
+        if (!codigoLimpio) {
+            console.log('Aviso: El padre se registró sin código de estudiante.');
+            return res.status(200).json({ 
+                mensaje: 'Cuenta creada. Aún no has vinculado a un estudiante porque el código estaba vacío.' 
+            });
+        }
+
+        console.log('Paso 2: Buscando al estudiante con el código proporcionado...');
         const resEstudiante = await pool.query(
             'SELECT id_estudiante FROM Estudiante WHERE codigo_vinculacion = $1',
             [codigoLimpio]
         );
 
         if (resEstudiante.rows.length === 0) {
-            console.log('Fallo: El código no existe en la tabla Estudiante.');
-            return res.status(404).json({ error: 'Código de vinculación inválido o estudiante no encontrado.' });
+            console.log('Advertencia: El código no existe en la tabla Estudiante.');
+            return res.status(200).json({ 
+                mensaje: 'Cuenta de padre creada, pero el código de estudiante es inválido. Podrás vincularlo después.' 
+            });
         }
 
         const idEstudiante = resEstudiante.rows[0].id_estudiante;
-        console.log('Paso 1 Completado: Estudiante encontrado (ID:', idEstudiante, ')');
 
-        // 2. Guardar al padre en la base de datos
-        console.log('Paso 2: Insertando datos del Padre en PostgreSQL...');
-        await pool.query(
-            'INSERT INTO Padre (id_padre, nombre, correo) VALUES ($1, $2, $3) ON CONFLICT (id_padre) DO NOTHING',
-            [idUsuario, nombre, correoSeguro]
-        );
-        console.log('Paso 2 Completado: Padre guardado exitosamente.');
-
-        // 3. Vincular al hijo con su nuevo padre
+        // PASO 3: Vincular al hijo con su nuevo padre
         console.log('Paso 3: Actualizando el registro del estudiante con el ID del padre...');
         await pool.query(
             'UPDATE Estudiante SET id_padre = $1 WHERE id_estudiante = $2',
@@ -154,10 +172,10 @@ app.post('/api/registro-padre', async (req, res) => {
         console.log('Paso 3 Completado: Vinculación familiar guardada.');
 
         console.log('--- FIN: Registro de Padre procesado con éxito ---');
-        res.status(200).json({ mensaje: 'Vinculación familiar exitosa.' });
+        res.status(200).json({ mensaje: 'Cuenta creada y vinculación familiar exitosa.' });
     } catch (error) {
         console.error('Error crítico en registro de padre:', error);
-        res.status(500).json({ error: 'Fallo al registrar al padre.' });
+        res.status(500).json({ error: 'Fallo al registrar al padre en la base de datos.' });
     }
 });
 
