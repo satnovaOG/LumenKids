@@ -253,6 +253,111 @@ app.get('/api/verificar-rol', async (req, res) => {
     }
 });
 
+// Ruta 3: Crear una nueva Ruta de Aprendizaje (Coursera)
+app.post('/api/crear-ruta-coursera', async (req, res) => {
+    console.log('--- INICIO: Procesando creación de Ruta de Aprendizaje ---');
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+
+    if (!idUsuario) {
+        return res.status(401).json({ error: 'No autorizado. Debes iniciar sesión.' });
+    }
+
+    // Extraemos los datos que nos enviará el panel visual
+    const { nombreCurso, area, urlCoursera } = req.body;
+
+    try {
+        // 1. Verificamos que el usuario tenga privilegios de Mentor o Administrador
+        const resPrivilegios = await pool.query(
+            'SELECT id_mentor FROM Mentor WHERE id_mentor = $1 UNION SELECT id_admin FROM Administrador WHERE id_admin = $1',
+            [idUsuario]
+        );
+
+        if (resPrivilegios.rows.length === 0) {
+            return res.status(403).json({ error: 'Acceso denegado. Solo el personal docente puede crear rutas.' });
+        }
+
+        // 2. Insertamos la nueva ruta en la base de datos
+        const nuevaRuta = await pool.query(
+            'INSERT INTO Ruta_Aprendizaje (nombre_curso, area, url_coursera, id_mentor) VALUES ($1, $2, $3, $4) RETURNING id_ruta',
+            [nombreCurso, area, urlCoursera, idUsuario]
+        );
+
+        console.log('--- FIN: Ruta de Coursera creada exitosamente ---');
+        res.status(200).json({ 
+            mensaje: 'Ruta de aprendizaje creada exitosamente.', 
+            id_ruta: nuevaRuta.rows[0].id_ruta 
+        });
+    } catch (error) {
+        console.error('Error al crear la ruta:', error);
+        res.status(500).json({ error: 'Fallo interno al procesar la ruta en el servidor.' });
+    }
+});
+
+// Ruta 4: Asignar Ruta de Aprendizaje a un Estudiante
+app.post('/api/asignar-ruta-estudiante', async (req, res) => {
+    console.log('--- INICIO: Asignando ruta a estudiante ---');
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+
+    if (!idUsuario) {
+        return res.status(401).json({ error: 'No autorizado.' });
+    }
+
+    const { idEstudiante, idRuta } = req.body;
+
+    try {
+         // 1. Verificamos nuevamente los privilegios de seguridad
+         const resPrivilegios = await pool.query(
+            'SELECT id_mentor FROM Mentor WHERE id_mentor = $1 UNION SELECT id_admin FROM Administrador WHERE id_admin = $1',
+            [idUsuario]
+        );
+
+        if (resPrivilegios.rows.length === 0) {
+            return res.status(403).json({ error: 'Acceso denegado.' });
+        }
+
+        // 2. Insertamos la relación en la tabla intermedia (ignora si ya existe)
+        await pool.query(
+            'INSERT INTO Estudiante_Ruta (id_estudiante, id_ruta) VALUES ($1, $2) ON CONFLICT (id_estudiante, id_ruta) DO NOTHING',
+            [idEstudiante, idRuta]
+        );
+
+        console.log('--- FIN: Ruta asignada correctamente ---');
+        res.status(200).json({ mensaje: 'Ruta vinculada al estudiante de forma exitosa.' });
+    } catch (error) {
+        console.error('Error al asignar ruta:', error);
+        res.status(500).json({ error: 'Fallo interno al vincular la ruta.' });
+    }
+});
+
+// Ruta 5: Obtener las rutas de aprendizaje del estudiante activo (Coursera)
+app.get('/api/mis-rutas', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+    
+    if (!idUsuario) {
+        return res.status(401).json({ error: 'No autorizado' });
+    }
+
+    try {
+        // Consultamos las rutas asignadas uniendo la tabla de Rutas y la tabla intermedia
+        const query = `
+            SELECT r.id_ruta, r.nombre_curso, r.area, r.url_coursera, er.progreso_porcentaje
+            FROM Ruta_Aprendizaje r
+            JOIN Estudiante_Ruta er ON r.id_ruta = er.id_ruta
+            WHERE er.id_estudiante = $1
+        `;
+        const result = await pool.query(query, [idUsuario]);
+        
+        // Enviamos el arreglo de rutas al frontend
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error al obtener rutas:', error);
+        res.status(500).json({ error: 'Fallo al obtener las rutas de aprendizaje.' });
+    }
+});
+
 app.get('/api/config', (req, res) => {
     // Es seguro enviar la Publishable Key, pero NUNCA envíes la Secret Key aquí.
     res.json({ 

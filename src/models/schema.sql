@@ -65,3 +65,31 @@ CREATE TABLE Clase_Estudiante (
         FOREIGN KEY(id_estudiante) 
         REFERENCES Estudiante(id_estudiante)
 );
+
+CREATE TABLE Ruta_Aprendizaje (
+    id_ruta SERIAL PRIMARY KEY,
+    nombre_curso VARCHAR(255) NOT NULL,
+    area VARCHAR(100) NOT NULL,
+    url_coursera VARCHAR(508) NOT NULL,
+    id_mentor VARCHAR(255) NOT NULL,
+    CONSTRAINT fk_mentor_ruta 
+        FOREIGN KEY(id_mentor) 
+        REFERENCES Mentor(id_mentor) 
+        ON DELETE CASCADE
+);
+
+-- Tabla de relación para asociar estudiantes con sus rutas activas
+CREATE TABLE Estudiante_Ruta (
+    id_estudiante VARCHAR(255) NOT NULL,
+    id_ruta INTEGER NOT NULL,
+    progreso_porcentaje INTEGER DEFAULT 0,
+    PRIMARY KEY (id_estudiante, id_ruta),
+    CONSTRAINT fk_estudiante_ruta 
+        FOREIGN KEY(id_estudiante) 
+        REFERENCES Estudiante(id_estudiante) 
+        ON DELETE CASCADE,
+    CONSTRAINT fk_ruta_estudiante 
+        FOREIGN KEY(id_ruta) 
+        REFERENCES Ruta_Aprendizaje(id_ruta) 
+        ON DELETE CASCADE
+);
