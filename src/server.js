@@ -401,6 +401,92 @@ app.get('/api/cursos-docente', async (req, res) => {
     }
 });
 
+// Ruta 7: Guardar la estructura de un curso complejo (Temas, Lecciones, Evaluaciones)
+app.post('/api/crear-curso-complejo', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+
+    if (!idUsuario) {
+        return res.status(401).json({ error: 'No autorizado' });
+    }
+
+    // Recibimos el ID de la ruta (curso base) y la estructura anidada generada en el frontend
+    const { idRuta, estructura } = req.body;
+
+    try {
+        // 1. Validamos que el usuario sea Docente o Administrador
+        const resPrivilegios = await pool.query(
+            'SELECT id_mentor FROM Mentor WHERE id_mentor = $1 UNION SELECT id_admin FROM Administrador WHERE id_admin = $1',
+            [idUsuario]
+        );
+        if (resPrivilegios.rows.length === 0) return res.status(403).json({ error: 'Acceso denegado.' });
+
+        // 2. Iniciamos una TRANSACCIÓN SQL. Si algo falla, todo se deshace para mantener la integridad.
+        await pool.query('BEGIN');
+
+        // 3. Recorremos y guardamos cada Tema
+        for (const tema of estructura.temas) {
+            const resTema = await pool.query(
+                'INSERT INTO Tema (nombre_tema, id_ruta) VALUES ($1, $2) RETURNING id_tema',
+                [tema.nombre, idRuta]
+            );
+            const idTema = resTema.rows[0].id_tema;
+
+            // 4. Guardamos las Lecciones (lecturas) de este Tema
+            if (tema.lecciones && tema.lecciones.length > 0) {
+                for (const leccion of tema.lecciones) {
+                    await pool.query(
+                        'INSERT INTO Leccion (titulo, contenido, id_tema) VALUES ($1, $2, $3)',
+                        [leccion.titulo, leccion.contenido, idTema]
+                    );
+                }
+            }
+
+            // 5. Guardamos las Evaluaciones de este Tema
+            if (tema.evaluaciones && tema.evaluaciones.length > 0) {
+                for (const evaluacion of tema.evaluaciones) {
+                    const resEval = await pool.query(
+                        'INSERT INTO Evaluacion (titulo, id_tema) VALUES ($1, $2) RETURNING id_evaluacion',
+                        [evaluacion.titulo, idTema]
+                    );
+                    const idEvaluacion = resEval.rows[0].id_evaluacion;
+
+                    // 6. Guardamos las Preguntas de esta Evaluación
+                    if (evaluacion.preguntas && evaluacion.preguntas.length > 0) {
+                        for (const pregunta of evaluacion.preguntas) {
+                            const resPreg = await pool.query(
+                                'INSERT INTO Pregunta (enunciado, tipo, id_evaluacion) VALUES ($1, $2, $3) RETURNING id_pregunta',
+                                [pregunta.enunciado, pregunta.tipo, idEvaluacion]
+                            );
+                            const idPregunta = resPreg.rows[0].id_pregunta;
+
+                            // 7. Guardamos las Opciones de respuesta para la calificación automática
+                            if (pregunta.opciones && pregunta.opciones.length > 0) {
+                                for (const opcion of pregunta.opciones) {
+                                    await pool.query(
+                                        'INSERT INTO Opcion (texto_opcion, es_correcta, id_pregunta) VALUES ($1, $2, $3)',
+                                        [opcion.texto, opcion.es_correcta, idPregunta]
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Si todo el proceso anterior fue exitoso, confirmamos los cambios en la base de datos
+        await pool.query('COMMIT');
+        res.status(200).json({ mensaje: 'Estructura del curso guardada exitosamente.' });
+
+    } catch (error) {
+        // Si hubo algún error (ej. falta un dato), deshacemos todo
+        await pool.query('ROLLBACK');
+        console.error('Error al guardar el curso complejo:', error);
+        res.status(500).json({ error: 'Fallo al procesar y guardar la estructura del curso.' });
+    }
+});
+
 app.get('/api/config', (req, res) => {
     // Es seguro enviar la Publishable Key, pero NUNCA envíes la Secret Key aquí.
     res.json({ 

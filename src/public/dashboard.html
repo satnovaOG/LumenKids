@@ -38,6 +38,28 @@
                     <button type="submit" class="custom-button">Vincular Ruta</button>
                 </form>
             </div>
+            
+            <div class="form-card" style="margin-top: 30px;">
+                <h3>Constructor de Cursos Complejos (Módulos y Evaluaciones)</h3>
+                <form id="form-curso-complejo" class="controls-container">
+                    <p style="font-size: 0.9rem; margin-bottom: 15px;">Primero, debes crear una Ruta Base en la sección de arriba y anotar su ID numérico.</p>
+                    
+                    <input type="number" id="id-ruta-base" class="custom-input" placeholder="ID de la Ruta Base (Ej. 1)" required>
+                    
+                    <!-- Contenedor donde JavaScript inyectará los temas dinámicamente -->
+                    <div id="contenedor-temas" style="width: 100%; text-align: left;"></div>
+                    
+                    <!-- Botón para agregar más bloques -->
+                    <button type="button" id="btn-add-tema" class="custom-button" style="margin-top: 15px; background-color: #7C3AED;">+ Añadir Nuevo Tema al Curso</button>
+                    
+                    <hr style="width: 100%; border: 1px solid rgba(255,255,255,0.1); margin: 20px 0;">
+                    
+                    <button type="submit" class="custom-button" style="background-color: #4ade80; color: #000;">Guardar Estructura Completa</button>
+                </form>
+                
+                <!-- Mensaje de respuesta -->
+                <div id="curso-complejo-message" class="system-message hidden"></div>
+            </div>
 
             <div class="form-card" style="margin-top: 30px;">
                 <h3>Mis Cursos y Estudiantes Inscritos</h3>

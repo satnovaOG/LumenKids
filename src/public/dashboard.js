@@ -129,6 +129,8 @@ function configurarPanelDocente() {
     });
 
     cargarCursosDocente();
+    // Agrega esta línea al final de la función configurarPanelDocente()
+    inicializarConstructorCursos();
 }
 
 // Función para cargar y desplegar los cursos y estudiantes del docente
@@ -217,4 +219,124 @@ async function cargarRutasEstudiante() {
         console.error('Fallo en la petición:', error);
         rutasContainer.innerHTML = '<p>Error de comunicación con el servidor.</p>';
     }
+}
+
+// Variable global para contar cuántos temas agregamos
+let contadorTemas = 0;
+
+// Función para inicializar el Constructor de Cursos
+function inicializarConstructorCursos() {
+    const btnAddTema = document.getElementById('btn-add-tema');
+    const contenedorTemas = document.getElementById('contenedor-temas');
+    const formCursoComplejo = document.getElementById('form-curso-complejo');
+    const mensaje = document.getElementById('curso-complejo-message');
+
+    // 1. Agregar un nuevo bloque de Tema cuando se hace clic en el botón
+    btnAddTema.addEventListener('click', () => {
+        contadorTemas++;
+        const idActual = contadorTemas;
+        
+        // Bloque HTML que representa un módulo completo (Tema + Lección + Quiz básico)
+        const temaHTML = `
+            <div class="tema-card" id="tema-card-${idActual}" style="border: 1px solid rgba(255,255,255,0.3); padding: 15px; margin-top: 15px; border-radius: 8px; background: rgba(0,0,0,0.1);">
+                <h4 style="margin-bottom: 10px; color: #E2E8F0;">Módulo ${idActual}</h4>
+                
+                <input type="text" class="custom-input tema-nombre" placeholder="Título del Módulo (Ej. Introducción)" required style="width: 100%; margin-bottom: 10px;">
+                
+                <label style="font-size: 0.85rem;">Material de Lectura / Lección:</label>
+                <textarea class="custom-input leccion-contenido" placeholder="Escribe aquí todo el texto de la lección..." required style="width: 100%; height: 80px; margin-bottom: 15px; resize: vertical;"></textarea>
+                
+                <div style="padding: 15px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                    <h5 style="margin-bottom: 10px; color: #facc15;">Quiz Integrado (Calificación Automática)</h5>
+                    <input type="text" class="custom-input evaluacion-titulo" placeholder="Nombre del Quiz" required style="width: 100%; margin-bottom: 10px;">
+                    <input type="text" class="custom-input pregunta-enunciado" placeholder="Pregunta (Ej. ¿Qué es un algoritmo?)" required style="width: 100%; margin-bottom: 10px;">
+                    <input type="text" class="custom-input opcion-correcta" placeholder="Respuesta CORRECTA" required style="width: 100%; margin-bottom: 10px; border-left: 3px solid #4ade80;">
+                    <input type="text" class="custom-input opcion-incorrecta" placeholder="Respuesta INCORRECTA" required style="width: 100%; margin-bottom: 10px; border-left: 3px solid #f87171;">
+                </div>
+                
+                <button type="button" class="custom-button" onclick="document.getElementById('tema-card-${idActual}').remove()" style="margin-top: 15px; background-color: #f87171; width: auto; padding: 5px 15px; font-size: 0.9rem;">Eliminar Módulo</button>
+            </div>
+        `;
+        
+        // Inyectamos el bloque en el contenedor
+        contenedorTemas.insertAdjacentHTML('beforeend', temaHTML);
+    });
+
+    // 2. Procesar el formulario al guardar
+    formCursoComplejo.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const idRutaBase = document.getElementById('id-ruta-base').value;
+        const tarjetasTemas = document.querySelectorAll('.tema-card');
+        
+        // Preparamos el objeto JSON principal
+        const estructura = { temas: [] };
+
+        // Recorremos cada módulo creado visualmente y extraemos sus valores
+        tarjetasTemas.forEach(tarjeta => {
+            const nombreTema = tarjeta.querySelector('.tema-nombre').value;
+            const contenidoLeccion = tarjeta.querySelector('.leccion-contenido').value;
+            const tituloEval = tarjeta.querySelector('.evaluacion-titulo').value;
+            const enunciadoPregunta = tarjeta.querySelector('.pregunta-enunciado').value;
+            const respuestaCorrecta = tarjeta.querySelector('.opcion-correcta').value;
+            const respuestaIncorrecta = tarjeta.querySelector('.opcion-incorrecta').value;
+
+            // Armamos la jerarquía para este tema específico
+            estructura.temas.push({
+                nombre: nombreTema,
+                lecciones: [
+                    { titulo: 'Lección principal', contenido: contenidoLeccion }
+                ],
+                evaluaciones: [
+                    {
+                        titulo: tituloEval,
+                        preguntas: [
+                            {
+                                enunciado: enunciadoPregunta,
+                                tipo: 'multiple',
+                                opciones: [
+                                    { texto: respuestaCorrecta, es_correcta: true },
+                                    { texto: respuestaIncorrecta, es_correcta: false }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            });
+        });
+
+        const token = await window.Clerk.session.getToken();
+        
+        try {
+            // Enviamos el objeto complejo al servidor
+            const response = await fetch('/api/crear-curso-complejo', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ idRuta: idRutaBase, estructura: estructura })
+            });
+            
+            const data = await response.json();
+            mensaje.classList.remove('hidden');
+            
+            if(response.ok) {
+                mensaje.innerHTML = '¡La estructura del curso ha sido guardada en la base de datos!';
+                mensaje.style.backgroundColor = 'rgba(74, 222, 128, 0.2)';
+                mensaje.style.color = '#4ade80';
+                formCursoComplejo.reset();
+                contenedorTemas.innerHTML = ''; // Limpiamos el constructor
+                contadorTemas = 0;
+            } else {
+                mensaje.innerHTML = `Error: ${data.error}`;
+                mensaje.style.backgroundColor = 'rgba(248, 113, 113, 0.2)';
+                mensaje.style.color = '#f87171';
+            }
+        } catch(error) {
+            console.error('Error de red:', error);
+            mensaje.classList.remove('hidden');
+            mensaje.innerHTML = 'Error de conexión con el servidor.';
+        }
+    });
 }

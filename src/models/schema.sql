@@ -7,6 +7,8 @@ DROP TABLE IF EXISTS Estudiante CASCADE;
 DROP TABLE IF EXISTS Padre CASCADE;
 DROP TABLE IF EXISTS Mentor CASCADE;
 DROP TABLE IF EXISTS Administrador CASCADE;
+DROP TABLE IF EXISTS Ruta_Aprendizaje CASCADE;
+DROP TABLE IF EXISTS Estudiante_Ruta CASCADE;
 
 -- 2. Creación de la nueva estructura
 
@@ -91,5 +93,67 @@ CREATE TABLE Estudiante_Ruta (
     CONSTRAINT fk_ruta_estudiante 
         FOREIGN KEY(id_ruta) 
         REFERENCES Ruta_Aprendizaje(id_ruta) 
+        ON DELETE CASCADE
+);
+
+-- =========================================================================
+-- AMPLIACIÓN: CREACIÓN DE CURSOS COMPLEJOS Y EVALUACIONES 
+-- =========================================================================
+
+-- 1. Tabla para los Módulos/Temas del curso
+CREATE TABLE Tema (
+    id_tema SERIAL PRIMARY KEY,
+    nombre_tema VARCHAR(255) NOT NULL,
+    id_ruta INTEGER NOT NULL,
+    CONSTRAINT fk_ruta_tema 
+        FOREIGN KEY(id_ruta) 
+        REFERENCES Ruta_Aprendizaje(id_ruta) 
+        ON DELETE CASCADE
+);
+
+-- 2. Tabla para el material de lectura o contenido teórico
+CREATE TABLE Leccion (
+    id_leccion SERIAL PRIMARY KEY,
+    titulo VARCHAR(255) NOT NULL,
+    contenido TEXT NOT NULL,
+    id_tema INTEGER NOT NULL,
+    CONSTRAINT fk_tema_leccion 
+        FOREIGN KEY(id_tema) 
+        REFERENCES Tema(id_tema) 
+        ON DELETE CASCADE
+);
+
+-- 3. Tabla principal para los Quizzes/Exámenes
+CREATE TABLE Evaluacion (
+    id_evaluacion SERIAL PRIMARY KEY,
+    titulo VARCHAR(255) NOT NULL,
+    id_tema INTEGER NOT NULL,
+    CONSTRAINT fk_tema_evaluacion 
+        FOREIGN KEY(id_tema) 
+        REFERENCES Tema(id_tema) 
+        ON DELETE CASCADE
+);
+
+-- 4. Tabla para las preguntas de la evaluación
+CREATE TABLE Pregunta (
+    id_pregunta SERIAL PRIMARY KEY,
+    enunciado TEXT NOT NULL,
+    tipo VARCHAR(50) NOT NULL, -- Ej: 'multiple', 'verdadero_falso'
+    id_evaluacion INTEGER NOT NULL,
+    CONSTRAINT fk_evaluacion_pregunta 
+        FOREIGN KEY(id_evaluacion) 
+        REFERENCES Evaluacion(id_evaluacion) 
+        ON DELETE CASCADE
+);
+
+-- 5. Tabla para las respuestas (calificación automática)
+CREATE TABLE Opcion (
+    id_opcion SERIAL PRIMARY KEY,
+    texto_opcion TEXT NOT NULL,
+    es_correcta BOOLEAN NOT NULL DEFAULT FALSE,
+    id_pregunta INTEGER NOT NULL,
+    CONSTRAINT fk_pregunta_opcion 
+        FOREIGN KEY(id_pregunta) 
+        REFERENCES Pregunta(id_pregunta) 
         ON DELETE CASCADE
 );
