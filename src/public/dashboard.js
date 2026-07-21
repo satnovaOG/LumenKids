@@ -16,20 +16,32 @@ window.addEventListener('load', async function () {
         afterSignOutUrl: '/index.html'
     });
 
-    // 4. Leemos el rol que guardamos en localStorage durante el inicio de sesión
-    const rolUsuario = localStorage.getItem('lumenkids_role') || 'Estudiante';
+   // 4. Consultamos el rol real y seguro desde el servidor
+    const token = await window.Clerk.session.getToken();
+    let rolUsuario = 'estudiante'; // Rol por defecto por seguridad
+    
+    try {
+        const checkRes = await fetch('/api/verificar-rol', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const dataCheck = await checkRes.json();
+        rolUsuario = dataCheck.rol; // Será 'admin', 'mentor', 'padre' o 'estudiante'
+    } catch (error) {
+        console.error('Error verificando rol en el servidor:', error);
+    }
+
     const teacherPanel = document.getElementById('teacher-panel');
     const studentPanel = document.getElementById('student-panel');
     
-    // 5. Mostramos el panel adecuado según el rol
-    if (rolUsuario === 'Mentor' || rolUsuario === 'Admin') {
+    // 5. Mostramos el panel adecuado según el rol de la base de datos
+    if (rolUsuario === 'mentor' || rolUsuario === 'admin') {
         teacherPanel.classList.remove('hidden');
         configurarPanelDocente();
-    } else if (rolUsuario === 'Estudiante') {
+    } else if (rolUsuario === 'estudiante') {
         studentPanel.classList.remove('hidden');
         cargarRutasEstudiante();
     } else {
-        // En caso de ser Padre, mostramos un mensaje temporal
+        // En caso de ser padre (rolUsuario === 'padre')
         studentPanel.classList.remove('hidden');
         studentPanel.innerHTML = '<h2>Bienvenido. El panel de seguimiento para padres está en construcción.</h2>';
     }
@@ -115,6 +127,53 @@ function configurarPanelDocente() {
             teacherMessage.innerHTML = 'Error de conexión con el servidor.';
         }
     });
+
+    cargarCursosDocente();
+}
+
+// Función para cargar y desplegar los cursos y estudiantes del docente
+async function cargarCursosDocente() {
+    const contenedorCursos = document.getElementById('lista-cursos-docente');
+    const token = await window.Clerk.session.getToken();
+
+    try {
+        const response = await fetch('/api/cursos-docente', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (response.ok) {
+            const cursos = await response.json();
+
+            if (cursos.length === 0) {
+                contenedorCursos.innerHTML = '<p>No tienes cursos creados actualmente.</p>';
+                return;
+            }
+
+            // Pintamos la lista de cursos
+            contenedorCursos.innerHTML = cursos.map(curso => `
+                <div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; margin-bottom: 15px; text-align: left;">
+                    <h4 style="color: #4ade80; font-size: 1.1rem; margin-bottom: 8px;">📚 ${curso.nombre_clase} (ID Clase: ${curso.id_clase})</h4>
+                    <p style="font-size: 0.9rem; font-weight: bold; margin-bottom: 5px;">Estudiantes inscritos (${curso.estudiantes.length}):</p>
+                    ${
+                        curso.estudiantes.length === 0 
+                        ? '<p style="font-size: 0.85rem; color: #cbd5e1;">No hay estudiantes inscritos en este curso.</p>'
+                        : `<ul style="list-style-type: disc; padding-left: 20px; font-size: 0.9rem;">
+                            ${curso.estudiantes.estudiantes || curso.estudiantes.map(est => `
+                                <li><strong>${est.nombre}</strong> (Nivel: ${est.nivel || 'Básico'} | Código: ${est.codigo_vinculacion})</li>
+                            `).join('')}
+                           </ul>`
+                    }
+                </div>
+            `).join('');
+        } else {
+            contenedorCursos.innerHTML = '<p>Error al obtener la información de los cursos.</p>';
+        }
+    } catch (error) {
+        console.error('Error de red:', error);
+        contenedorCursos.innerHTML = '<p>Error de conexión con el servidor.</p>';
+    }
 }
 
 // Función para descargar y mostrar las rutas si el usuario es estudiante

@@ -234,19 +234,20 @@ app.get('/api/verificar-rol', async (req, res) => {
     }
 
     try {
-        // Consultamos si el usuario actual está registrado como Administrador
-        const resAdmin = await pool.query(
-            'SELECT id_admin FROM Administrador WHERE id_admin = $1',
-            [idUsuario]
-        );
+        // 1. Verificamos si es Administrador
+        const resAdmin = await pool.query('SELECT id_admin FROM Administrador WHERE id_admin = $1', [idUsuario]);
+        if (resAdmin.rows.length > 0) return res.status(200).json({ rol: 'admin' });
 
-        if (resAdmin.rows.length > 0) {
-            return res.status(200).json({ rol: 'admin' });
-        }
+        // 2. Verificamos si es Docente (Mentor)
+        const resMentor = await pool.query('SELECT id_mentor FROM Mentor WHERE id_mentor = $1', [idUsuario]);
+        if (resMentor.rows.length > 0) return res.status(200).json({ rol: 'mentor' });
 
-        // Si en el futuro necesitas redirigir a otros roles, puedes agregar las consultas aquí.
-        // Por ahora, si no es administrador, devolvemos un rol general.
-        res.status(200).json({ rol: 'usuario' });
+        // 3. Verificamos si es Padre
+        const resPadre = await pool.query('SELECT id_padre FROM Padre WHERE id_padre = $1', [idUsuario]);
+        if (resPadre.rows.length > 0) return res.status(200).json({ rol: 'padre' });
+
+        // 4. Si no está en las anteriores, asumimos que es Estudiante
+        res.status(200).json({ rol: 'estudiante' });
     } catch (error) {
         console.error('Error al verificar el rol:', error);
         res.status(500).json({ error: 'Error interno del servidor' });
@@ -355,6 +356,48 @@ app.get('/api/mis-rutas', async (req, res) => {
     } catch (error) {
         console.error('Error al obtener rutas:', error);
         res.status(500).json({ error: 'Fallo al obtener las rutas de aprendizaje.' });
+    }
+});
+
+// Ruta 6: Obtener los cursos del docente y sus estudiantes inscritos
+app.get('/api/cursos-docente', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+
+    if (!idUsuario) {
+        return res.status(401).json({ error: 'No autorizado' });
+    }
+
+    try {
+        // 1. Consultamos todas las clases asociadas al mentor actual
+        const resClases = await pool.query(
+            'SELECT id_clase, nombre FROM Clase WHERE id_mentor = $1',
+            [idUsuario]
+        );
+
+        const clasesConEstudiantes = [];
+
+        // 2. Para cada clase, buscamos los estudiantes inscritos
+        for (let clase of resClases.rows) {
+            const resEstudiantes = await pool.query(
+                `SELECT e.id_estudiante, e.nombre, e.edad, e.nivel, e.codigo_vinculacion
+                 FROM Estudiante e
+                 JOIN Clase_Estudiante ce ON e.id_estudiante = ce.id_estudiante
+                 WHERE ce.id_clase = $1`,
+                [clase.id_clase]
+            );
+
+            clasesConEstudiantes.push({
+                id_clase: clase.id_clase,
+                nombre_clase: clase.nombre,
+                estudiantes: resEstudiantes.rows
+            });
+        }
+
+        res.status(200).json(clasesConEstudiantes);
+    } catch (error) {
+        console.error('Error al obtener cursos del docente:', error);
+        res.status(500).json({ error: 'Fallo al obtener los cursos y estudiantes.' });
     }
 });
 
