@@ -487,6 +487,97 @@ app.post('/api/crear-curso-complejo', async (req, res) => {
     }
 });
 
+// Ruta para obtener todos los estudiantes disponibles para inscribir
+app.get('/api/estudiantes-disponibles', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT id_estudiante, nombre, nivel, codigo_vinculacion FROM Estudiante');
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error al obtener estudiantes:', error);
+        res.status(500).json({ error: 'Fallo al cargar la lista de estudiantes.' });
+    }
+});
+
+// Ruta para guardar un curso dinámico completo
+app.post('/api/crear-curso-dinamico', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+
+    if (!idUsuario) return res.status(401).json({ error: 'No autorizado' });
+
+    const { nombreCurso, estudiantesSeleccionados, estructura } = req.body;
+
+    try {
+        await pool.query('BEGIN'); // Iniciamos la transacción segura
+
+        // 1. Creamos el curso general (Clase) asignado a este docente
+        const resClase = await pool.query(
+            'INSERT INTO Clase (nombre, id_mentor) VALUES ($1, $2) RETURNING id_clase',
+            [nombreCurso, idUsuario]
+        );
+        const idClase = resClase.rows[0].id_clase;
+
+        // 2. Inscribimos a los estudiantes seleccionados
+        if (estudiantesSeleccionados && estudiantesSeleccionados.length > 0) {
+            for (const idEstudiante of estudiantesSeleccionados) {
+                await pool.query(
+                    'INSERT INTO Clase_Estudiante (id_clase, id_estudiante) VALUES ($1, $2)',
+                    [idClase, idEstudiante]
+                );
+            }
+        }
+
+        // 3. Guardamos los módulos (Temas)
+        for (const modulo of estructura) {
+            const resTema = await pool.query(
+                'INSERT INTO Tema (nombre_tema, id_clase) VALUES ($1, $2) RETURNING id_tema',
+                [modulo.nombre, idClase]
+            );
+            const idTema = resTema.rows[0].id_tema;
+
+            // 4. Guardamos la lección (texto) del módulo
+            if (modulo.leccion) {
+                await pool.query(
+                    'INSERT INTO Leccion (titulo, contenido, id_tema) VALUES ($1, $2, $3)',
+                    ['Lección Principal', modulo.leccion, idTema]
+                );
+            }
+
+            // 5. Si el módulo tiene un quiz, lo guardamos
+            if (modulo.quiz) {
+                const resEval = await pool.query(
+                    'INSERT INTO Evaluacion (titulo, id_tema) VALUES ($1, $2) RETURNING id_evaluacion',
+                    [modulo.quiz.titulo, idTema]
+                );
+                const idEvaluacion = resEval.rows[0].id_evaluacion;
+
+                // 6. Guardamos preguntas y opciones del quiz
+                for (const pregunta of modulo.quiz.preguntas) {
+                    const resPreg = await pool.query(
+                        'INSERT INTO Pregunta (enunciado, tipo, id_evaluacion) VALUES ($1, $2, $3) RETURNING id_pregunta',
+                        [pregunta.enunciado, pregunta.tipo, idEvaluacion]
+                    );
+                    const idPregunta = resPreg.rows[0].id_pregunta;
+
+                    for (const opcion of pregunta.opciones) {
+                        await pool.query(
+                            'INSERT INTO Opcion (texto_opcion, es_correcta, id_pregunta) VALUES ($1, $2, $3)',
+                            [opcion.texto, opcion.esCorrecta, idPregunta]
+                        );
+                    }
+                }
+            }
+        }
+
+        await pool.query('COMMIT'); // Guardamos todo permanentemente
+        res.status(200).json({ mensaje: '¡Curso dinámico creado exitosamente!' });
+    } catch (error) {
+        await pool.query('ROLLBACK'); // Revertimos si hay error
+        console.error('Error en transacción de curso:', error);
+        res.status(500).json({ error: 'Error interno al guardar el curso.' });
+    }
+});
+
 app.get('/api/config', (req, res) => {
     // Es seguro enviar la Publishable Key, pero NUNCA envíes la Secret Key aquí.
     res.json({ 

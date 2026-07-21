@@ -1,24 +1,16 @@
 -- Archivo: src/models/schema.sql
 
 -- 1. Limpieza de tablas anteriores (Útil durante el desarrollo)
-DROP TABLE IF EXISTS Clase_Estudiante CASCADE;
-DROP TABLE IF EXISTS Clase CASCADE;
-DROP TABLE IF EXISTS Estudiante CASCADE;
-DROP TABLE IF EXISTS Padre CASCADE;
-DROP TABLE IF EXISTS Mentor CASCADE;
-DROP TABLE IF EXISTS Administrador CASCADE;
-DROP TABLE IF EXISTS Ruta_Aprendizaje CASCADE;
-DROP TABLE IF EXISTS Estudiante_Ruta CASCADE;
 
 -- 2. Creación de la nueva estructura
 
-CREATE TABLE Administrador (
+CREATE TABLE IF NOT EXISTS Administrador (
     id_admin VARCHAR(255) PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
     correo VARCHAR(255) UNIQUE NOT NULL
 );
 
-CREATE TABLE Mentor (
+CREATE TABLE IF NOT EXISTS Mentor (
     id_mentor VARCHAR(255) PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
     correo VARCHAR(255) UNIQUE,
@@ -28,13 +20,13 @@ CREATE TABLE Mentor (
         REFERENCES Administrador(id_admin)
 );
 
-CREATE TABLE Padre (
+CREATE TABLE IF NOT EXISTS Padre (
     id_padre VARCHAR(255) PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
     correo VARCHAR(255) UNIQUE NOT NULL
 );
 
-CREATE TABLE Estudiante (
+CREATE TABLE IF NOT EXISTS Estudiante (
     id_estudiante VARCHAR(255) PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
     edad INTEGER,
@@ -47,7 +39,7 @@ CREATE TABLE Estudiante (
         ON DELETE SET NULL
 );
 
-CREATE TABLE Clase (
+CREATE TABLE IF NOT EXISTS Clase (
     id_clase SERIAL PRIMARY KEY,
     nombre VARCHAR(255) NOT NULL,
     id_mentor VARCHAR(255) NOT NULL,
@@ -56,7 +48,7 @@ CREATE TABLE Clase (
         REFERENCES Mentor(id_mentor)
 );
 
-CREATE TABLE Clase_Estudiante (
+CREATE TABLE IF NOT EXISTS Clase_Estudiante (
     id_clase INTEGER NOT NULL,
     id_estudiante VARCHAR(255) NOT NULL,
     PRIMARY KEY (id_clase, id_estudiante),
@@ -68,7 +60,7 @@ CREATE TABLE Clase_Estudiante (
         REFERENCES Estudiante(id_estudiante)
 );
 
-CREATE TABLE Ruta_Aprendizaje (
+CREATE TABLE IF NOT EXISTS Ruta_Aprendizaje (
     id_ruta SERIAL PRIMARY KEY,
     nombre_curso VARCHAR(255) NOT NULL,
     area VARCHAR(100) NOT NULL,
@@ -81,7 +73,7 @@ CREATE TABLE Ruta_Aprendizaje (
 );
 
 -- Tabla de relación para asociar estudiantes con sus rutas activas
-CREATE TABLE Estudiante_Ruta (
+CREATE TABLE IF NOT EXISTS Estudiante_Ruta (
     id_estudiante VARCHAR(255) NOT NULL,
     id_ruta INTEGER NOT NULL,
     progreso_porcentaje INTEGER DEFAULT 0,
@@ -101,7 +93,7 @@ CREATE TABLE Estudiante_Ruta (
 -- =========================================================================
 
 -- 1. Tabla para los Módulos/Temas del curso
-CREATE TABLE Tema (
+CREATE TABLE IF NOT EXISTS Tema (
     id_tema SERIAL PRIMARY KEY,
     nombre_tema VARCHAR(255) NOT NULL,
     id_ruta INTEGER NOT NULL,
@@ -112,7 +104,7 @@ CREATE TABLE Tema (
 );
 
 -- 2. Tabla para el material de lectura o contenido teórico
-CREATE TABLE Leccion (
+CREATE TABLE IF NOT EXISTS Leccion (
     id_leccion SERIAL PRIMARY KEY,
     titulo VARCHAR(255) NOT NULL,
     contenido TEXT NOT NULL,
@@ -124,7 +116,7 @@ CREATE TABLE Leccion (
 );
 
 -- 3. Tabla principal para los Quizzes/Exámenes
-CREATE TABLE Evaluacion (
+CREATE TABLE IF NOT EXISTS Evaluacion (
     id_evaluacion SERIAL PRIMARY KEY,
     titulo VARCHAR(255) NOT NULL,
     id_tema INTEGER NOT NULL,
@@ -135,7 +127,7 @@ CREATE TABLE Evaluacion (
 );
 
 -- 4. Tabla para las preguntas de la evaluación
-CREATE TABLE Pregunta (
+CREATE TABLE IF NOT EXISTS Pregunta (
     id_pregunta SERIAL PRIMARY KEY,
     enunciado TEXT NOT NULL,
     tipo VARCHAR(50) NOT NULL, -- Ej: 'multiple', 'verdadero_falso'
@@ -147,7 +139,7 @@ CREATE TABLE Pregunta (
 );
 
 -- 5. Tabla para las respuestas (calificación automática)
-CREATE TABLE Opcion (
+CREATE TABLE IF NOT EXISTS Opcion (
     id_opcion SERIAL PRIMARY KEY,
     texto_opcion TEXT NOT NULL,
     es_correcta BOOLEAN NOT NULL DEFAULT FALSE,
@@ -157,3 +149,11 @@ CREATE TABLE Opcion (
         REFERENCES Pregunta(id_pregunta) 
         ON DELETE CASCADE
 );
+
+-- Eliminamos la restricción anterior que obligaba a usar una ruta de Coursera
+ALTER TABLE Tema DROP CONSTRAINT IF EXISTS fk_ruta_tema;
+ALTER TABLE Tema DROP COLUMN IF EXISTS id_ruta;
+
+-- Añadimos la nueva columna para que los módulos pertenezcan a una Clase
+ALTER TABLE Tema ADD COLUMN id_clase INTEGER;
+ALTER TABLE Tema ADD CONSTRAINT fk_clase_tema FOREIGN KEY (id_clase) REFERENCES Clase(id_clase) ON DELETE CASCADE;
