@@ -19,7 +19,28 @@
         <!-- Panel del Docente (Oculto por defecto hasta verificar rol) -->
         <main id="teacher-panel" class="panel-section hidden">
             <h2>Gestión de Rutas de Aprendizaje (Coursera)</h2>
-            
+
+            <!-- Menú de Navegación del Docente -->
+            <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+                <a href="/mis-cursos.html" class="custom-button" style="text-decoration: none; text-align: center; background-color: #632dc0;">
+                    👥 Ver mis Estudiantes
+                </a>
+                <a href="/crear-curso.html" class="custom-button" style="text-decoration: none; text-align: center; background-color: #632dc0;">
+                    📝 Constructor de Cursos
+                </a>
+            </div>
+
+            <!-- Sección de Configuración de Cuenta -->
+            <div class="form-card" style="margin-bottom: 30px; border-left: 4px solid #3b82f6;">
+                <h3>Configuración de la Cuenta</h3>
+                <p style="font-size: 0.9rem; margin-bottom: 15px; color: #E2E8F0;">
+                    Gestiona tu perfil y actualiza tu contraseña de forma segura.
+                </p>
+                <button type="button" id="btn-cambiar-password" class="custom-button" style="background-color: #3b82f6; width: auto; padding: 10px 20px;">
+                    🔒 Cambiar Contraseña
+                </button>
+            </div>
+
             <div class="form-card">
                 <h3>Crear Nueva Ruta</h3>
                 <form id="form-crear-ruta" class="controls-container">
@@ -39,34 +60,6 @@
                 </form>
             </div>
             
-            <div class="form-card" style="margin-top: 30px;">
-                <h3>Constructor de Cursos Complejos (Módulos y Evaluaciones)</h3>
-                <form id="form-curso-complejo" class="controls-container">
-                    <p style="font-size: 0.9rem; margin-bottom: 15px;">Primero, debes crear una Ruta Base en la sección de arriba y anotar su ID numérico.</p>
-                    
-                    <input type="number" id="id-ruta-base" class="custom-input" placeholder="ID de la Ruta Base (Ej. 1)" required>
-                    
-                    <!-- Contenedor donde JavaScript inyectará los temas dinámicamente -->
-                    <div id="contenedor-temas" style="width: 100%; text-align: left;"></div>
-                    
-                    <!-- Botón para agregar más bloques -->
-                    <button type="button" id="btn-add-tema" class="custom-button" style="margin-top: 15px; background-color: #7C3AED;">+ Añadir Nuevo Tema al Curso</button>
-                    
-                    <hr style="width: 100%; border: 1px solid rgba(255,255,255,0.1); margin: 20px 0;">
-                    
-                    <button type="submit" class="custom-button" style="background-color: #4ade80; color: #000;">Guardar Estructura Completa</button>
-                </form>
-                
-                <!-- Mensaje de respuesta -->
-                <div id="curso-complejo-message" class="system-message hidden"></div>
-            </div>
-
-            <div class="form-card" style="margin-top: 30px;">
-                <h3>Mis Cursos y Estudiantes Inscritos</h3>
-                <div id="lista-cursos-docente">
-                    <p>Cargando tus cursos...</p>
-                </div>
-            </div>
             
             <!-- Contenedor para mostrar mensajes de éxito o error al docente -->
             <div id="teacher-message" class="system-message hidden"></div>

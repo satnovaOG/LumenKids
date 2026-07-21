@@ -49,6 +49,14 @@ window.addEventListener('load', async function () {
 
 // Función para inicializar los formularios del docente
 function configurarPanelDocente() {
+
+    // Evento: Abrir modal seguro de Clerk para gestionar la cuenta y cambiar contraseña
+    const btnCambiarPassword = document.getElementById('btn-cambiar-password');
+    if (btnCambiarPassword) {
+        btnCambiarPassword.addEventListener('click', () => {
+            window.Clerk.openUserProfile();
+        });
+    }
     const formCrearRuta = document.getElementById('form-crear-ruta');
     const formAsignarRuta = document.getElementById('form-asignar-ruta');
     const teacherMessage = document.getElementById('teacher-message');
