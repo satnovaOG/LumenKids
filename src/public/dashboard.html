@@ -5,84 +5,216 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LumenKids - Panel Principal</title>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="dashboard-wrapper">
         <header class="dashboard-header">
-            <h1>Panel de Control LumenKids</h1>
-            <!-- Botón de sesión de Clerk -->
+            <div>
+                <h1 id="titulo-panel">LumenKids</h1>
+                <p id="subtitulo-panel" style="color: var(--texto-suave); font-size: 0.9rem;">Cargando tu panel...</p>
+            </div>
             <div id="user-button"></div>
         </header>
 
-        <!-- Panel del Docente (Oculto por defecto hasta verificar rol) -->
-        <main id="teacher-panel" class="panel-section hidden">
-            <h2>Gestión de Rutas de Aprendizaje (Coursera)</h2>
-
-            <!-- Menú de Navegación del Docente -->
-            <div style="display: flex; gap: 15px; margin-bottom: 20px;">
-                <a href="/mis-cursos.html" class="custom-button" style="text-decoration: none; text-align: center; background-color: #632dc0;">
-                    👥 Ver mis Estudiantes
-                </a>
-                <a href="/crear-curso.html" class="custom-button" style="text-decoration: none; text-align: center; background-color: #632dc0;">
-                    📝 Constructor de Cursos
-                </a>
-            </div>
-
-            <!-- Sección de Configuración de Cuenta -->
-            <div class="form-card" style="margin-bottom: 30px; border-left: 4px solid #3b82f6;">
-                <h3>Configuración de la Cuenta</h3>
-                <p style="font-size: 0.9rem; margin-bottom: 15px; color: #E2E8F0;">
-                    Gestiona tu perfil y actualiza tu contraseña de forma segura.
-                </p>
-                <button type="button" id="btn-cambiar-password" class="custom-button" style="background-color: #3b82f6; width: auto; padding: 10px 20px;">
-                    🔒 Cambiar Contraseña
-                </button>
-            </div>
+        <!-- ============================================================= -->
+        <!-- PANEL INTEGRAL DEL ESTUDIANTE (RF5) + GAMIFICACIÓN (RF2)      -->
+        <!-- ============================================================= -->
+        <main id="student-panel" class="panel-section hidden">
+            <div class="stats-grid" id="stats-estudiante"></div>
 
             <div class="form-card">
-                <h3>Crear Nueva Ruta</h3>
-                <form id="form-crear-ruta" class="controls-container">
-                    <input type="text" id="nombre-curso" class="custom-input" placeholder="Nombre del Curso (Ej. Lógica Modal)" required>
-                    <input type="text" id="area-curso" class="custom-input" placeholder="Área (Ej. Matemática Elemental)" required>
-                    <input type="url" id="url-coursera" class="custom-input" placeholder="Enlace de Coursera (https://...)" required>
-                    <button type="submit" class="custom-button">Guardar Ruta</button>
-                </form>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h3 style="margin: 0;">Nivel <span id="nivel-actual">1</span></h3>
+                    <span id="progreso-nivel-texto" style="font-size: 0.85rem; color: var(--texto-suave);">0 / 100 pts</span>
+                </div>
+                <div class="progress-track"><div class="progress-fill" id="barra-nivel" style="width: 0%;"></div></div>
             </div>
 
-            <div class="form-card">
-                <h3>Asignar Ruta a Estudiante</h3>
-                <form id="form-asignar-ruta" class="controls-container">
-                    <input type="text" id="id-estudiante" class="custom-input" placeholder="ID del Estudiante (Ej. user_2P...)" required>
-                    <input type="number" id="id-ruta" class="custom-input" placeholder="ID numérico de la Ruta" required>
-                    <button type="submit" class="custom-button">Vincular Ruta</button>
-                </form>
-            </div>
-            
-            
-            <!-- Contenedor para mostrar mensajes de éxito o error al docente -->
-            <div id="teacher-message" class="system-message hidden"></div>
+            <nav class="tab-nav" id="tabs-estudiante">
+                <button data-tab="tab-rutas" class="activa">🚀 Mis Rutas</button>
+                <button data-tab="tab-retos">🎮 Retos y Olimpiadas</button>
+                <button data-tab="tab-logros">🏅 Mis Logros</button>
+                <button data-tab="tab-recomendaciones">💡 Para ti</button>
+            </nav>
+
+            <section id="tab-rutas" class="tab-panel">
+                <div id="rutas-container" class="rutas-grid"><p>Cargando tus rutas...</p></div>
+            </section>
+
+            <section id="tab-retos" class="tab-panel hidden">
+                <div id="retos-container" class="retos-grid"><p>Cargando los retos...</p></div>
+            </section>
+
+            <section id="tab-logros" class="tab-panel hidden">
+                <div id="insignias-container" class="insignias-grid"></div>
+            </section>
+
+            <section id="tab-recomendaciones" class="tab-panel hidden">
+                <div class="form-card">
+                    <h3>Recomendaciones personalizadas</h3>
+                    <ul class="lista-simple" id="lista-recomendaciones"></ul>
+                </div>
+                <div class="form-card">
+                    <h3>Mensajes de tu mentor</h3>
+                    <ul class="lista-simple" id="lista-orientaciones-estudiante"><li>No tienes mensajes todavía.</li></ul>
+                </div>
+            </section>
+
+            <div id="student-message" class="system-message hidden"></div>
         </main>
 
-        <!-- Panel del Estudiante (Oculto por defecto hasta verificar rol) -->
-        <main id="student-panel" class="panel-section hidden">
-            <h2>Mis Rutas de Aprendizaje Activas</h2>
-            <div id="rutas-container" class="rutas-grid">
-                <!-- Aquí inyectaremos los links de Coursera dinámicamente con JS -->
-                <p>Cargando tus módulos...</p>
+        <!-- ============================================================= -->
+        <!-- PANEL PARA PADRES (RF3)                                       -->
+        <!-- ============================================================= -->
+        <main id="parent-panel" class="panel-section hidden">
+            <!-- Situación anormal: cuenta sin estudiante vinculado -->
+            <div id="vinculacion-card" class="form-card hidden">
+                <h3>Vincula a tu hijo</h3>
+                <p style="color: var(--texto-suave); font-size: 0.9rem; margin-bottom: 15px;">
+                    Aún no tienes un estudiante vinculado. Ingresa el código único que recibió tu hijo al registrarse.
+                </p>
+                <form id="form-vincular" class="controls-container" style="flex-direction: row; align-items: stretch;">
+                    <input type="text" id="codigo-vinculacion" class="custom-input" placeholder="Ej: A1B2C3" style="flex: 1;">
+                    <button type="submit" class="custom-button" style="width: auto;">Vincular</button>
+                </form>
             </div>
+
+            <div id="hijos-container"></div>
+
+            <div class="form-card">
+                <h3>📰 Aprende sobre nuevas tecnologías</h3>
+                <p style="color: var(--texto-suave); font-size: 0.9rem; margin-bottom: 15px;">
+                    Contenido seleccionado para que acompañes a tu hijo en el mundo de la IA y la tecnología.
+                </p>
+                <div class="rutas-grid" id="articulos-container"></div>
+            </div>
+
+            <div id="parent-message" class="system-message hidden"></div>
+        </main>
+
+        <!-- ============================================================= -->
+        <!-- PANEL DE MENTORÍA Y GESTIÓN DOCENTE (RF4)                     -->
+        <!-- ============================================================= -->
+        <main id="teacher-panel" class="panel-section hidden">
+            <nav class="tab-nav" id="tabs-docente">
+                <button data-tab="tab-seguimiento" class="activa">🧭 Seguimiento</button>
+                <button data-tab="tab-crear-reto">🎮 Publicar Reto</button>
+                <button data-tab="tab-rutas-coursera">🔗 Rutas Coursera</button>
+                <button data-tab="tab-cuenta">⚙️ Cuenta</button>
+            </nav>
+
+            <!-- RF4: Seguimiento pedagógico -->
+            <section id="tab-seguimiento" class="tab-panel">
+                <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;">
+                    <a href="/mis-cursos.html" class="custom-button secundario" style="width: auto; text-decoration: none;">👥 Ver mis Cursos</a>
+                    <a href="/crear-curso.html" class="custom-button secundario" style="width: auto; text-decoration: none;">📝 Constructor de Cursos</a>
+                </div>
+
+                <div class="form-card">
+                    <h3>Mis estudiantes</h3>
+                    <div id="tabla-estudiantes-wrapper" style="overflow-x: auto;">
+                        <p>Cargando estudiantes...</p>
+                    </div>
+                </div>
+
+                <div class="form-card">
+                    <h3>Enviar orientación o registrar nota</h3>
+                    <form id="form-seguimiento" class="controls-container" style="align-items: stretch;">
+                        <select id="seguimiento-estudiante" class="custom-select" required>
+                            <option value="">Selecciona un estudiante...</option>
+                        </select>
+                        <select id="seguimiento-tipo" class="custom-select">
+                            <option value="orientacion">Orientación personalizada (la ven el estudiante y su familia)</option>
+                            <option value="nota">Nota de seguimiento (privada, solo docentes)</option>
+                        </select>
+                        <textarea id="seguimiento-mensaje" class="custom-input" rows="3" placeholder="Escribe tu orientación o nota de seguimiento..."></textarea>
+                        <button type="submit" class="custom-button">Registrar</button>
+                    </form>
+                    <div class="form-card" style="margin-top: 15px; margin-bottom: 0;">
+                        <h3 style="font-size: 1rem;">Historial del estudiante seleccionado</h3>
+                        <ul class="lista-simple" id="historial-seguimiento"><li>Selecciona un estudiante para ver su historial.</li></ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- RF2: Creación de retos y olimpiadas -->
+            <section id="tab-crear-reto" class="tab-panel hidden">
+                <div class="form-card">
+                    <h3>Publicar un nuevo reto</h3>
+                    <p style="color: var(--texto-suave); font-size: 0.9rem; margin-bottom: 15px;">
+                        Crea retos semanales, olimpiadas o juegos matemáticos. Las respuestas se validan y puntúan automáticamente.
+                    </p>
+                    <form id="form-crear-reto" class="controls-container" style="align-items: stretch;">
+                        <input type="text" id="reto-titulo" class="custom-input" placeholder="Título (Ej. Reto semanal: Secuencias)" required>
+                        <textarea id="reto-descripcion" class="custom-input" rows="2" placeholder="Descripción breve del reto (opcional)"></textarea>
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <select id="reto-tipo" class="custom-select" style="flex: 1;">
+                                <option value="semanal">Reto Semanal</option>
+                                <option value="olimpiada">Olimpiada</option>
+                                <option value="juego">Juego Matemático</option>
+                            </select>
+                            <input type="text" id="reto-area" class="custom-input" placeholder="Área (Ej. Lógica)" style="flex: 1;">
+                            <input type="number" id="reto-puntos" class="custom-input" placeholder="Puntos" value="50" min="5" style="flex: 0 0 110px;">
+                        </div>
+                        <input type="text" id="reto-pregunta" class="custom-input" placeholder="Pregunta (Ej. Si 3x + 5 = 20, ¿cuánto vale x?)" required>
+                        <input type="text" id="reto-opciones" class="custom-input" placeholder="Opciones separadas por | (Ej. 3|5|7). Déjalo vacío para respuesta abierta.">
+                        <input type="text" id="reto-respuesta" class="custom-input" placeholder="Respuesta correcta (Ej. 5)" required style="border-left: 3px solid var(--exito);">
+                        <button type="submit" class="custom-button">Publicar Reto</button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- RF1: Rutas de aprendizaje con contenido externo -->
+            <section id="tab-rutas-coursera" class="tab-panel hidden">
+                <div class="form-card">
+                    <h3>Crear Nueva Ruta</h3>
+                    <form id="form-crear-ruta" class="controls-container" style="align-items: stretch;">
+                        <input type="text" id="nombre-curso" class="custom-input" placeholder="Nombre del Curso (Ej. Lógica Modal)" required>
+                        <select id="area-curso" class="custom-select" required>
+                            <option value="">Selecciona el área...</option>
+                            <option value="Matemática Elemental">Matemática Elemental</option>
+                            <option value="Pensamiento Computacional">Pensamiento Computacional</option>
+                            <option value="Cultura Financiera">Cultura Financiera</option>
+                        </select>
+                        <input type="url" id="url-coursera" class="custom-input" placeholder="Enlace externo (https://www.coursera.org/...)" required>
+                        <button type="submit" class="custom-button">Guardar Ruta</button>
+                    </form>
+                </div>
+
+                <div class="form-card">
+                    <h3>Asignar Ruta a Estudiante</h3>
+                    <form id="form-asignar-ruta" class="controls-container" style="align-items: stretch;">
+                        <select id="id-estudiante" class="custom-select" required>
+                            <option value="">Selecciona un estudiante...</option>
+                        </select>
+                        <input type="number" id="id-ruta" class="custom-input" placeholder="ID numérico de la Ruta" required>
+                        <button type="submit" class="custom-button">Vincular Ruta</button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- Configuración de cuenta -->
+            <section id="tab-cuenta" class="tab-panel hidden">
+                <div class="form-card">
+                    <h3>Configuración de la Cuenta</h3>
+                    <p style="font-size: 0.9rem; margin-bottom: 15px; color: var(--texto-suave);">
+                        Gestiona tu perfil y actualiza tu contraseña de forma segura.
+                    </p>
+                    <button type="button" id="btn-cambiar-password" class="custom-button" style="width: auto;">🔒 Cambiar Contraseña</button>
+                </div>
+            </section>
+
+            <div id="teacher-message" class="system-message hidden"></div>
         </main>
     </div>
 
-    <!-- Script principal de Clerk -->
-    <script 
-        async crossorigin="anonymous" 
-        data-clerk-publishable-key="pk_test_c3F1YXJlLW1hbi0yLmNsZXJrLmFjY291bnRzLmRldiQ" 
+    <script
+        async crossorigin="anonymous"
+        data-clerk-publishable-key="pk_test_c3F1YXJlLW1hbi0yLmNsZXJrLmFjY291bnRzLmRldiQ"
         src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js">
     </script>
-    
-    <!-- En el Paso 4 crearemos este archivo JS para la interactividad -->
     <script src="dashboard.js"></script>
 </body>
 </html>
