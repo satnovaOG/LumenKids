@@ -213,7 +213,7 @@
             } else {
                 try {
                     systemMessage.style.display = 'block';
-                    systemMessage.innerHTML = 'Verificando privilegios...';
+                    systemMessage.innerHTML = 'Iniciando sesión, preparanda tu panel...';
 
                     const checkRes = await fetch('/api/verificar-rol', {
                         headers: { 'Authorization': `Bearer ${token}` }
@@ -222,18 +222,14 @@
                     const dataCheck = await checkRes.json();
                     
                     if (dataCheck.rol === 'admin') {
+                        // Si es el superusuario, va al panel de administración
                         window.location.replace('/admin.html');
-                        return; 
                     } else {
-                        systemMessage.innerHTML = `¡Bienvenido de nuevo, ${nombre}!<br><br>
-                        <div style="background: rgba(255,0,0,0.2); padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 0.9rem;">
-                            <strong>Nota de depuración:</strong> El servidor no detectó privilegios de Administrador.<br>
-                            Tu ID de Clerk actual es:<br>
-                            <span style="font-family: monospace; color: #ffcccc;">${clerkUser.id}</span><br><br>
-                            Por favor, verifica que este ID sea exactamente igual en tu .env
-                        </div>`;
+                        // Para Docentes, Estudiantes y Padres, los enviamos al panel principal
+                        window.location.replace('/dashboard.html');
                     }
                 } catch (error) {
+                    systemMessage.style.display = 'block';
                     systemMessage.innerHTML = 'Error al comunicarse con el servidor.';
                 }
             }

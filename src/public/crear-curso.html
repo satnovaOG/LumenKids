@@ -1,0 +1,56 @@
+<!-- Archivo: src/public/crear-curso.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LumenKids - Constructor de Cursos</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="dashboard-wrapper">
+        <header class="dashboard-header">
+            <div>
+                <h1>Constructor de Cursos</h1>
+                <a href="/dashboard.html" style="color: #4ade80; text-decoration: none; font-weight: bold;">← Volver al Panel Principal</a>
+            </div>
+            <div id="user-button"></div>
+        </header>
+
+        <main class="panel-section">
+            <div class="form-card">
+                <h3>Detalles Generales del Curso</h3>
+                <div class="controls-container">
+                    <input type="text" id="nombre-curso-general" class="custom-input" placeholder="Nombre de la Materia / Curso (Ej. Matemáticas Básicas)" required style="width: 100%; font-size: 1.2rem; padding: 12px;">
+                    
+                    <h4 style="margin-top: 20px; color: #E2E8F0;">Inscribir Estudiantes</h4>
+                    <p style="font-size: 0.85rem; margin-bottom: 10px;">Selecciona los alumnos que participarán en esta clase:</p>
+                    <div id="contenedor-estudiantes" style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; max-height: 150px; overflow-y: auto; text-align: left; display: grid; gap: 8px;">
+                        Cargando estudiantes...
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-card" style="margin-top: 20px;">
+                <h3>Estructura y Módulos</h3>
+                <form id="form-crear-curso-dinamico" class="controls-container">
+                    
+                    <div id="contenedor-modulos" style="width: 100%; text-align: left;"></div>
+                    
+                    <button type="button" id="btn-add-modulo" class="custom-button" style="margin-top: 15px; background-color: #3b82f6;">+ Añadir Módulo</button>
+                    
+                    <hr style="width: 100%; border: 1px solid rgba(255,255,255,0.1); margin: 20px 0;">
+                    
+                    <button type="submit" class="custom-button" style="background-color: #4ade80; color: #000; font-size: 1.1rem;">💾 Guardar y Publicar Curso</button>
+                </form>
+                
+                <div id="crear-curso-message" class="system-message hidden" style="margin-top: 15px;"></div>
+            </div>
+        </main>
+    </div>
+
+    <script async crossorigin="anonymous" data-clerk-publishable-key="pk_test_c3F1YXJlLW1hbi0yLmNsZXJrLmFjY291bnRzLmRldiQ" src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js"></script>
+    <script src="crear-curso.js"></script>
+</body>
+</html>

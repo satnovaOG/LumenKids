@@ -102,11 +102,17 @@ app.post('/api/registro-estudiante', async (req, res) => {
 // Ruta 2: Registro del Padre con Validación
 // Archivo: src/server.js (Reemplazar la Ruta 2: Registro del Padre)
 
+// Ruta 2: Registro del Padre con Validación Mejorada
+// Ruta 2: Registro del Padre con Validación Mejorada y Rastreo
 app.post('/api/registro-padre', async (req, res) => {
-    console.log('--- INICIO: Procesando registro de Padre ---');
+    console.log('\n--- INICIO: Procesando registro de Padre ---');
     
     const auth = getAuth(req);
     const idUsuario = auth.userId;
+    
+    // RASTREO: Imprimimos exactamente lo que el frontend nos envió
+    console.log('Datos recibidos en el servidor (req.body):', req.body);
+    console.log('ID del usuario detectado por Clerk:', idUsuario);
     
     if (!idUsuario) {
         console.log('Fallo: No se detectó autenticación de Clerk.');
@@ -119,33 +125,45 @@ app.post('/api/registro-padre', async (req, res) => {
     const codigoLimpio = codigoHijo ? codigoHijo.trim().toUpperCase() : '';
     const correoSeguro = correo || `sin-correo-${idUsuario}@lumenkids.local`;
 
-    console.log('Datos recibidos:', { nombre, correoSeguro, codigoLimpio });
-
     try {
-        // 1. Verificar si el código ingresado existe
-        console.log('Paso 1: Buscando al estudiante con el código proporcionado...');
+        // PASO 1: Guardar SIEMPRE al padre en la base de datos primero
+        console.log('Paso 1: Intentando insertar en PostgreSQL...');
+        console.log(`Valores a guardar -> ID: ${idUsuario}, Nombre: ${nombre}, Correo: ${correoSeguro}`);
+        
+        const resultado = await pool.query(
+            'INSERT INTO Padre (id_padre, nombre, correo) VALUES ($1, $2, $3) ON CONFLICT (id_padre) DO NOTHING RETURNING *',
+            [idUsuario, nombre, correoSeguro]
+        );
+        
+        if (resultado.rowCount > 0) {
+            console.log('¡Éxito! Nuevo Padre guardado exitosamente en Neon.');
+        } else {
+            console.log('Aviso: El Padre ya existía en la base de datos (se ignoró la inserción).');
+        }
+        // PASO 2: Verificar si proporcionó un código de estudiante
+        if (!codigoLimpio) {
+            console.log('Aviso: El padre se registró sin código de estudiante.');
+            return res.status(200).json({ 
+                mensaje: 'Cuenta creada. Aún no has vinculado a un estudiante porque el código estaba vacío.' 
+            });
+        }
+
+        console.log('Paso 2: Buscando al estudiante con el código proporcionado...');
         const resEstudiante = await pool.query(
             'SELECT id_estudiante FROM Estudiante WHERE codigo_vinculacion = $1',
             [codigoLimpio]
         );
 
         if (resEstudiante.rows.length === 0) {
-            console.log('Fallo: El código no existe en la tabla Estudiante.');
-            return res.status(404).json({ error: 'Código de vinculación inválido o estudiante no encontrado.' });
+            console.log('Advertencia: El código no existe en la tabla Estudiante.');
+            return res.status(200).json({ 
+                mensaje: 'Cuenta de padre creada, pero el código de estudiante es inválido. Podrás vincularlo después.' 
+            });
         }
 
         const idEstudiante = resEstudiante.rows[0].id_estudiante;
-        console.log('Paso 1 Completado: Estudiante encontrado (ID:', idEstudiante, ')');
 
-        // 2. Guardar al padre en la base de datos
-        console.log('Paso 2: Insertando datos del Padre en PostgreSQL...');
-        await pool.query(
-            'INSERT INTO Padre (id_padre, nombre, correo) VALUES ($1, $2, $3) ON CONFLICT (id_padre) DO NOTHING',
-            [idUsuario, nombre, correoSeguro]
-        );
-        console.log('Paso 2 Completado: Padre guardado exitosamente.');
-
-        // 3. Vincular al hijo con su nuevo padre
+        // PASO 3: Vincular al hijo con su nuevo padre
         console.log('Paso 3: Actualizando el registro del estudiante con el ID del padre...');
         await pool.query(
             'UPDATE Estudiante SET id_padre = $1 WHERE id_estudiante = $2',
@@ -154,10 +172,10 @@ app.post('/api/registro-padre', async (req, res) => {
         console.log('Paso 3 Completado: Vinculación familiar guardada.');
 
         console.log('--- FIN: Registro de Padre procesado con éxito ---');
-        res.status(200).json({ mensaje: 'Vinculación familiar exitosa.' });
+        res.status(200).json({ mensaje: 'Cuenta creada y vinculación familiar exitosa.' });
     } catch (error) {
         console.error('Error crítico en registro de padre:', error);
-        res.status(500).json({ error: 'Fallo al registrar al padre.' });
+        res.status(500).json({ error: 'Fallo al registrar al padre en la base de datos.' });
     }
 });
 
@@ -234,22 +252,347 @@ app.get('/api/verificar-rol', async (req, res) => {
     }
 
     try {
-        // Consultamos si el usuario actual está registrado como Administrador
-        const resAdmin = await pool.query(
-            'SELECT id_admin FROM Administrador WHERE id_admin = $1',
-            [idUsuario]
-        );
+        // 1. Verificamos si es Administrador
+        const resAdmin = await pool.query('SELECT id_admin FROM Administrador WHERE id_admin = $1', [idUsuario]);
+        if (resAdmin.rows.length > 0) return res.status(200).json({ rol: 'admin' });
 
-        if (resAdmin.rows.length > 0) {
-            return res.status(200).json({ rol: 'admin' });
-        }
+        // 2. Verificamos si es Docente (Mentor)
+        const resMentor = await pool.query('SELECT id_mentor FROM Mentor WHERE id_mentor = $1', [idUsuario]);
+        if (resMentor.rows.length > 0) return res.status(200).json({ rol: 'mentor' });
 
-        // Si en el futuro necesitas redirigir a otros roles, puedes agregar las consultas aquí.
-        // Por ahora, si no es administrador, devolvemos un rol general.
-        res.status(200).json({ rol: 'usuario' });
+        // 3. Verificamos si es Padre
+        const resPadre = await pool.query('SELECT id_padre FROM Padre WHERE id_padre = $1', [idUsuario]);
+        if (resPadre.rows.length > 0) return res.status(200).json({ rol: 'padre' });
+
+        // 4. Si no está en las anteriores, asumimos que es Estudiante
+        res.status(200).json({ rol: 'estudiante' });
     } catch (error) {
         console.error('Error al verificar el rol:', error);
         res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// Ruta 3: Crear una nueva Ruta de Aprendizaje (Coursera)
+app.post('/api/crear-ruta-coursera', async (req, res) => {
+    console.log('--- INICIO: Procesando creación de Ruta de Aprendizaje ---');
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+
+    if (!idUsuario) {
+        return res.status(401).json({ error: 'No autorizado. Debes iniciar sesión.' });
+    }
+
+    // Extraemos los datos que nos enviará el panel visual
+    const { nombreCurso, area, urlCoursera } = req.body;
+
+    try {
+        // 1. Verificamos que el usuario tenga privilegios de Mentor o Administrador
+        const resPrivilegios = await pool.query(
+            'SELECT id_mentor FROM Mentor WHERE id_mentor = $1 UNION SELECT id_admin FROM Administrador WHERE id_admin = $1',
+            [idUsuario]
+        );
+
+        if (resPrivilegios.rows.length === 0) {
+            return res.status(403).json({ error: 'Acceso denegado. Solo el personal docente puede crear rutas.' });
+        }
+
+        // 2. Insertamos la nueva ruta en la base de datos
+        const nuevaRuta = await pool.query(
+            'INSERT INTO Ruta_Aprendizaje (nombre_curso, area, url_coursera, id_mentor) VALUES ($1, $2, $3, $4) RETURNING id_ruta',
+            [nombreCurso, area, urlCoursera, idUsuario]
+        );
+
+        console.log('--- FIN: Ruta de Coursera creada exitosamente ---');
+        res.status(200).json({ 
+            mensaje: 'Ruta de aprendizaje creada exitosamente.', 
+            id_ruta: nuevaRuta.rows[0].id_ruta 
+        });
+    } catch (error) {
+        console.error('Error al crear la ruta:', error);
+        res.status(500).json({ error: 'Fallo interno al procesar la ruta en el servidor.' });
+    }
+});
+
+// Ruta 4: Asignar Ruta de Aprendizaje a un Estudiante
+app.post('/api/asignar-ruta-estudiante', async (req, res) => {
+    console.log('--- INICIO: Asignando ruta a estudiante ---');
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+
+    if (!idUsuario) {
+        return res.status(401).json({ error: 'No autorizado.' });
+    }
+
+    const { idEstudiante, idRuta } = req.body;
+
+    try {
+         // 1. Verificamos nuevamente los privilegios de seguridad
+         const resPrivilegios = await pool.query(
+            'SELECT id_mentor FROM Mentor WHERE id_mentor = $1 UNION SELECT id_admin FROM Administrador WHERE id_admin = $1',
+            [idUsuario]
+        );
+
+        if (resPrivilegios.rows.length === 0) {
+            return res.status(403).json({ error: 'Acceso denegado.' });
+        }
+
+        // 2. Insertamos la relación en la tabla intermedia (ignora si ya existe)
+        await pool.query(
+            'INSERT INTO Estudiante_Ruta (id_estudiante, id_ruta) VALUES ($1, $2) ON CONFLICT (id_estudiante, id_ruta) DO NOTHING',
+            [idEstudiante, idRuta]
+        );
+
+        console.log('--- FIN: Ruta asignada correctamente ---');
+        res.status(200).json({ mensaje: 'Ruta vinculada al estudiante de forma exitosa.' });
+    } catch (error) {
+        console.error('Error al asignar ruta:', error);
+        res.status(500).json({ error: 'Fallo interno al vincular la ruta.' });
+    }
+});
+
+// Ruta 5: Obtener las rutas de aprendizaje del estudiante activo (Coursera)
+app.get('/api/mis-rutas', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+    
+    if (!idUsuario) {
+        return res.status(401).json({ error: 'No autorizado' });
+    }
+
+    try {
+        // Consultamos las rutas asignadas uniendo la tabla de Rutas y la tabla intermedia
+        const query = `
+            SELECT r.id_ruta, r.nombre_curso, r.area, r.url_coursera, er.progreso_porcentaje
+            FROM Ruta_Aprendizaje r
+            JOIN Estudiante_Ruta er ON r.id_ruta = er.id_ruta
+            WHERE er.id_estudiante = $1
+        `;
+        const result = await pool.query(query, [idUsuario]);
+        
+        // Enviamos el arreglo de rutas al frontend
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error al obtener rutas:', error);
+        res.status(500).json({ error: 'Fallo al obtener las rutas de aprendizaje.' });
+    }
+});
+
+// Ruta 6: Obtener los cursos del docente y sus estudiantes inscritos
+app.get('/api/cursos-docente', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+
+    if (!idUsuario) {
+        return res.status(401).json({ error: 'No autorizado' });
+    }
+
+    try {
+        // 1. Consultamos todas las clases asociadas al mentor actual
+        const resClases = await pool.query(
+            'SELECT id_clase, nombre FROM Clase WHERE id_mentor = $1',
+            [idUsuario]
+        );
+
+        const clasesConEstudiantes = [];
+
+        // 2. Para cada clase, buscamos los estudiantes inscritos
+        for (let clase of resClases.rows) {
+            const resEstudiantes = await pool.query(
+                `SELECT e.id_estudiante, e.nombre, e.edad, e.nivel, e.codigo_vinculacion
+                 FROM Estudiante e
+                 JOIN Clase_Estudiante ce ON e.id_estudiante = ce.id_estudiante
+                 WHERE ce.id_clase = $1`,
+                [clase.id_clase]
+            );
+
+            clasesConEstudiantes.push({
+                id_clase: clase.id_clase,
+                nombre_clase: clase.nombre,
+                estudiantes: resEstudiantes.rows
+            });
+        }
+
+        res.status(200).json(clasesConEstudiantes);
+    } catch (error) {
+        console.error('Error al obtener cursos del docente:', error);
+        res.status(500).json({ error: 'Fallo al obtener los cursos y estudiantes.' });
+    }
+});
+
+// Ruta 7: Guardar la estructura de un curso complejo (Temas, Lecciones, Evaluaciones)
+app.post('/api/crear-curso-complejo', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+
+    if (!idUsuario) {
+        return res.status(401).json({ error: 'No autorizado' });
+    }
+
+    // Recibimos el ID de la ruta (curso base) y la estructura anidada generada en el frontend
+    const { idRuta, estructura } = req.body;
+
+    try {
+        // 1. Validamos que el usuario sea Docente o Administrador
+        const resPrivilegios = await pool.query(
+            'SELECT id_mentor FROM Mentor WHERE id_mentor = $1 UNION SELECT id_admin FROM Administrador WHERE id_admin = $1',
+            [idUsuario]
+        );
+        if (resPrivilegios.rows.length === 0) return res.status(403).json({ error: 'Acceso denegado.' });
+
+        // 2. Iniciamos una TRANSACCIÓN SQL. Si algo falla, todo se deshace para mantener la integridad.
+        await pool.query('BEGIN');
+
+        // 3. Recorremos y guardamos cada Tema
+        for (const tema of estructura.temas) {
+            const resTema = await pool.query(
+                'INSERT INTO Tema (nombre_tema, id_ruta) VALUES ($1, $2) RETURNING id_tema',
+                [tema.nombre, idRuta]
+            );
+            const idTema = resTema.rows[0].id_tema;
+
+            // 4. Guardamos las Lecciones (lecturas) de este Tema
+            if (tema.lecciones && tema.lecciones.length > 0) {
+                for (const leccion of tema.lecciones) {
+                    await pool.query(
+                        'INSERT INTO Leccion (titulo, contenido, id_tema) VALUES ($1, $2, $3)',
+                        [leccion.titulo, leccion.contenido, idTema]
+                    );
+                }
+            }
+
+            // 5. Guardamos las Evaluaciones de este Tema
+            if (tema.evaluaciones && tema.evaluaciones.length > 0) {
+                for (const evaluacion of tema.evaluaciones) {
+                    const resEval = await pool.query(
+                        'INSERT INTO Evaluacion (titulo, id_tema) VALUES ($1, $2) RETURNING id_evaluacion',
+                        [evaluacion.titulo, idTema]
+                    );
+                    const idEvaluacion = resEval.rows[0].id_evaluacion;
+
+                    // 6. Guardamos las Preguntas de esta Evaluación
+                    if (evaluacion.preguntas && evaluacion.preguntas.length > 0) {
+                        for (const pregunta of evaluacion.preguntas) {
+                            const resPreg = await pool.query(
+                                'INSERT INTO Pregunta (enunciado, tipo, id_evaluacion) VALUES ($1, $2, $3) RETURNING id_pregunta',
+                                [pregunta.enunciado, pregunta.tipo, idEvaluacion]
+                            );
+                            const idPregunta = resPreg.rows[0].id_pregunta;
+
+                            // 7. Guardamos las Opciones de respuesta para la calificación automática
+                            if (pregunta.opciones && pregunta.opciones.length > 0) {
+                                for (const opcion of pregunta.opciones) {
+                                    await pool.query(
+                                        'INSERT INTO Opcion (texto_opcion, es_correcta, id_pregunta) VALUES ($1, $2, $3)',
+                                        [opcion.texto, opcion.es_correcta, idPregunta]
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Si todo el proceso anterior fue exitoso, confirmamos los cambios en la base de datos
+        await pool.query('COMMIT');
+        res.status(200).json({ mensaje: 'Estructura del curso guardada exitosamente.' });
+
+    } catch (error) {
+        // Si hubo algún error (ej. falta un dato), deshacemos todo
+        await pool.query('ROLLBACK');
+        console.error('Error al guardar el curso complejo:', error);
+        res.status(500).json({ error: 'Fallo al procesar y guardar la estructura del curso.' });
+    }
+});
+
+// Ruta para obtener todos los estudiantes disponibles para inscribir
+app.get('/api/estudiantes-disponibles', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT id_estudiante, nombre, nivel, codigo_vinculacion FROM Estudiante');
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error al obtener estudiantes:', error);
+        res.status(500).json({ error: 'Fallo al cargar la lista de estudiantes.' });
+    }
+});
+
+// Ruta para guardar un curso dinámico completo
+app.post('/api/crear-curso-dinamico', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+
+    if (!idUsuario) return res.status(401).json({ error: 'No autorizado' });
+
+    const { nombreCurso, estudiantesSeleccionados, estructura } = req.body;
+
+    try {
+        await pool.query('BEGIN'); // Iniciamos la transacción segura
+
+        // 1. Creamos el curso general (Clase) asignado a este docente
+        const resClase = await pool.query(
+            'INSERT INTO Clase (nombre, id_mentor) VALUES ($1, $2) RETURNING id_clase',
+            [nombreCurso, idUsuario]
+        );
+        const idClase = resClase.rows[0].id_clase;
+
+        // 2. Inscribimos a los estudiantes seleccionados
+        if (estudiantesSeleccionados && estudiantesSeleccionados.length > 0) {
+            for (const idEstudiante of estudiantesSeleccionados) {
+                await pool.query(
+                    'INSERT INTO Clase_Estudiante (id_clase, id_estudiante) VALUES ($1, $2)',
+                    [idClase, idEstudiante]
+                );
+            }
+        }
+
+        // 3. Guardamos los módulos (Temas)
+        for (const modulo of estructura) {
+            const resTema = await pool.query(
+                'INSERT INTO Tema (nombre_tema, id_clase) VALUES ($1, $2) RETURNING id_tema',
+                [modulo.nombre, idClase]
+            );
+            const idTema = resTema.rows[0].id_tema;
+
+            // 4. Guardamos la lección (texto) del módulo
+            if (modulo.leccion) {
+                await pool.query(
+                    'INSERT INTO Leccion (titulo, contenido, id_tema) VALUES ($1, $2, $3)',
+                    ['Lección Principal', modulo.leccion, idTema]
+                );
+            }
+
+            // 5. Si el módulo tiene un quiz, lo guardamos
+            if (modulo.quiz) {
+                const resEval = await pool.query(
+                    'INSERT INTO Evaluacion (titulo, id_tema) VALUES ($1, $2) RETURNING id_evaluacion',
+                    [modulo.quiz.titulo, idTema]
+                );
+                const idEvaluacion = resEval.rows[0].id_evaluacion;
+
+                // 6. Guardamos preguntas y opciones del quiz
+                for (const pregunta of modulo.quiz.preguntas) {
+                    const resPreg = await pool.query(
+                        'INSERT INTO Pregunta (enunciado, tipo, id_evaluacion) VALUES ($1, $2, $3) RETURNING id_pregunta',
+                        [pregunta.enunciado, pregunta.tipo, idEvaluacion]
+                    );
+                    const idPregunta = resPreg.rows[0].id_pregunta;
+
+                    for (const opcion of pregunta.opciones) {
+                        await pool.query(
+                            'INSERT INTO Opcion (texto_opcion, es_correcta, id_pregunta) VALUES ($1, $2, $3)',
+                            [opcion.texto, opcion.esCorrecta, idPregunta]
+                        );
+                    }
+                }
+            }
+        }
+
+        await pool.query('COMMIT'); // Guardamos todo permanentemente
+        res.status(200).json({ mensaje: '¡Curso dinámico creado exitosamente!' });
+    } catch (error) {
+        await pool.query('ROLLBACK'); // Revertimos si hay error
+        console.error('Error en transacción de curso:', error);
+        res.status(500).json({ error: 'Error interno al guardar el curso.' });
     }
 });
 
