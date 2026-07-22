@@ -135,8 +135,7 @@ function configurarPanelDocente() {
             teacherMessage.innerHTML = 'Error de conexión con el servidor.';
         }
     });
-
-    cargarCursosDocente();
+cargarCursosDocente();
     // Agrega esta línea al final de la función configurarPanelDocente()
     inicializarConstructorCursos();
 }
@@ -184,7 +183,9 @@ async function cargarCursosDocente() {
         console.error('Error de red:', error);
         contenedorCursos.innerHTML = '<p>Error de conexión con el servidor.</p>';
     }
+
 }
+
 
 // Función para descargar y mostrar las rutas si el usuario es estudiante
 async function cargarRutasEstudiante() {
@@ -269,6 +270,7 @@ function inicializarConstructorCursos() {
         // Inyectamos el bloque en el contenedor
         contenedorTemas.insertAdjacentHTML('beforeend', temaHTML);
     });
+
 
     // 2. Procesar el formulario al guardar
     formCursoComplejo.addEventListener('submit', async (e) => {
