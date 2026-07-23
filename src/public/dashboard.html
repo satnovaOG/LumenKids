@@ -34,6 +34,7 @@
 
             <nav class="tab-nav" id="tabs-estudiante">
                 <button data-tab="tab-rutas" class="activa">🚀 Mis Rutas</button>
+                <button data-tab="tab-cursos">📚 Mis Cursos</button>
                 <button data-tab="tab-retos">🎮 Retos y Olimpiadas</button>
                 <button data-tab="tab-logros">🏅 Mis Logros</button>
                 <button data-tab="tab-recomendaciones">💡 Para ti</button>
@@ -41,6 +42,12 @@
 
             <section id="tab-rutas" class="tab-panel">
                 <div id="rutas-container" class="rutas-grid"><p>Cargando tus rutas...</p></div>
+            </section>
+
+            <!-- Cursos creados por los docentes (Clases con módulos, lecciones y quizzes) -->
+            <section id="tab-cursos" class="tab-panel hidden">
+                <div id="clases-container" class="rutas-grid"><p>Cargando tus cursos...</p></div>
+                <div id="detalle-curso" class="hidden" style="margin-top: 10px;"></div>
             </section>
 
             <section id="tab-retos" class="tab-panel hidden">

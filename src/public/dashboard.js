@@ -60,11 +60,15 @@ window.addEventListener('load', async function () {
 // ---------------------------------------------------------------
 
 async function apiFetch(url, opciones = {}) {
+    // El token de Clerk expira cada ~60 segundos: hay que pedir uno fresco en cada
+    // petición (getToken lo cachea y renueva automáticamente), de lo contrario las
+    // acciones hechas después de un minuto fallan con "No autorizado".
+    const token = await window.Clerk.session.getToken();
     const respuesta = await fetch(url, {
         ...opciones,
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${tokenGlobal}`,
+            'Authorization': `Bearer ${token}`,
             ...(opciones.headers || {})
         }
     });
@@ -109,6 +113,7 @@ function configurarPanelEstudiante() {
     activarTabs('tabs-estudiante');
     cargarPanelEstudiante();
     cargarRetos();
+    cargarClasesEstudiante();
 }
 
 async function cargarPanelEstudiante() {
@@ -259,6 +264,136 @@ async function responderReto(idReto, respuesta) {
         cargarPanelEstudiante(); // Actualizamos puntos, nivel e insignias en tiempo real
     } catch (error) {
         mostrarMensaje('student-message', error.message, true);
+    }
+}
+
+// ---------------------------------------------------------------
+// CURSOS DEL DOCENTE (Clases con módulos, lecciones y quizzes)
+// ---------------------------------------------------------------
+
+async function cargarClasesEstudiante() {
+    const contenedor = document.getElementById('clases-container');
+    try {
+        const clases = await apiFetch('/api/mis-clases');
+        if (clases.length === 0) {
+            contenedor.innerHTML = '<p>Aún no estás inscrito en ningún curso. Tu docente puede inscribirte desde su panel.</p>';
+            return;
+        }
+
+        contenedor.innerHTML = clases.map(clase => `
+            <article class="reto-card">
+                <span class="chip">📚 Curso</span>
+                <h4>${escapeHtml(clase.nombre)}</h4>
+                <p>Docente: ${escapeHtml(clase.nombre_mentor || 'Sin asignar')}</p>
+                <p>${clase.total_modulos} módulo(s) de aprendizaje</p>
+                <button type="button" class="custom-button" data-abrir-clase="${clase.id_clase}">Abrir curso</button>
+            </article>
+        `).join('');
+
+        contenedor.querySelectorAll('[data-abrir-clase]').forEach(boton => {
+            boton.addEventListener('click', () => abrirClase(boton.dataset.abrirClase));
+        });
+    } catch (error) {
+        contenedor.innerHTML = `<p>${escapeHtml(error.message)}</p>`;
+    }
+}
+
+async function abrirClase(idClase) {
+    const lista = document.getElementById('clases-container');
+    const detalle = document.getElementById('detalle-curso');
+    detalle.classList.remove('hidden');
+    detalle.innerHTML = '<p>Cargando el contenido del curso...</p>';
+
+    try {
+        const curso = await apiFetch(`/api/clases/${idClase}/contenido`);
+        lista.classList.add('hidden');
+
+        detalle.innerHTML = `
+            <button type="button" class="custom-button secundario" id="btn-volver-cursos" style="width: auto; margin-bottom: 18px;">← Volver a mis cursos</button>
+            <div class="form-card">
+                <h3>📚 ${escapeHtml(curso.nombre)}</h3>
+                <p style="color: var(--texto-suave); font-size: 0.9rem;">Docente: ${escapeHtml(curso.nombre_mentor || 'Sin asignar')}</p>
+            </div>
+            ${curso.temas.length === 0 ? '<div class="form-card"><p>Este curso todavía no tiene módulos publicados.</p></div>' : ''}
+            ${curso.temas.map(tema => `
+                <details class="form-card modulo-detalle">
+                    <summary style="cursor: pointer; font-size: 1.1rem; font-weight: 800;">📖 ${escapeHtml(tema.nombre_tema)}</summary>
+
+                    ${tema.lecciones.map(leccion => `
+                        <div style="margin-top: 16px;">
+                            <h4 style="margin-bottom: 8px; color: var(--acento);">${escapeHtml(leccion.titulo)}</h4>
+                            <p style="color: var(--texto-suave); line-height: 1.7; white-space: pre-wrap;">${escapeHtml(leccion.contenido)}</p>
+                        </div>
+                    `).join('')}
+
+                    ${tema.evaluaciones.map(evaluacion => `
+                        <form class="form-quiz" data-evaluacion="${evaluacion.id_evaluacion}" style="margin-top: 20px; background: rgba(2, 6, 23, 0.3); border: 1px solid var(--cristal-borde); border-radius: var(--radio-sm); padding: 18px;">
+                            <h4 style="margin-bottom: 14px;">📝 ${escapeHtml(evaluacion.titulo)}</h4>
+                            ${evaluacion.preguntas.map(pregunta => `
+                                <fieldset data-pregunta="${pregunta.id_pregunta}" style="border: none; margin-bottom: 16px;">
+                                    <legend style="font-weight: 800; margin-bottom: 8px;">${escapeHtml(pregunta.enunciado)}</legend>
+                                    <div class="reto-opciones">
+                                        ${pregunta.opciones.map(opcion => `
+                                            <label class="reto-opcion" style="display: flex; align-items: center; gap: 10px;">
+                                                <input type="${pregunta.tipo === 'multiple' ? 'checkbox' : 'radio'}"
+                                                       name="pregunta-${pregunta.id_pregunta}"
+                                                       value="${opcion.id_opcion}">
+                                                <span>${escapeHtml(opcion.texto_opcion)}</span>
+                                            </label>
+                                        `).join('')}
+                                    </div>
+                                </fieldset>
+                            `).join('')}
+                            <button type="submit" class="custom-button" style="width: auto;">Enviar respuestas</button>
+                            <p class="resultado-quiz" style="margin-top: 10px; font-weight: 800;"></p>
+                        </form>
+                    `).join('')}
+                </details>
+            `).join('')}
+        `;
+
+        document.getElementById('btn-volver-cursos').addEventListener('click', () => {
+            detalle.classList.add('hidden');
+            detalle.innerHTML = '';
+            lista.classList.remove('hidden');
+        });
+
+        detalle.querySelectorAll('.form-quiz').forEach(form => {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const resultado = form.querySelector('.resultado-quiz');
+
+                // Recolectamos las opciones marcadas por pregunta
+                const respuestas = {};
+                form.querySelectorAll('[data-pregunta]').forEach(fieldset => {
+                    const marcadas = Array.from(fieldset.querySelectorAll('input:checked')).map(input => input.value);
+                    respuestas[fieldset.dataset.pregunta] = marcadas;
+                });
+
+                try {
+                    const data = await apiFetch(`/api/evaluaciones/${form.dataset.evaluacion}/responder`, {
+                        method: 'POST',
+                        body: JSON.stringify({ respuestas })
+                    });
+
+                    resultado.textContent = data.mensaje;
+                    resultado.style.color = data.correctas === data.total ? 'var(--exito)' : 'var(--alerta)';
+
+                    // Coloreamos cada pregunta según el resultado
+                    data.detalle.forEach(item => {
+                        const fieldset = form.querySelector(`[data-pregunta="${item.id_pregunta}"]`);
+                        if (fieldset) {
+                            fieldset.querySelector('legend').style.color = item.correcta ? 'var(--exito)' : 'var(--peligro)';
+                        }
+                    });
+                } catch (error) {
+                    resultado.textContent = error.message;
+                    resultado.style.color = 'var(--peligro)';
+                }
+            });
+        });
+    } catch (error) {
+        detalle.innerHTML = `<div class="form-card"><p>${escapeHtml(error.message)}</p></div>`;
     }
 }
 

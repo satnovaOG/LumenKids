@@ -138,11 +138,12 @@ function inicializarConstructorCursos(token) {
             });
         });
 
-        // Petición al servidor
+        // Petición al servidor (token fresco: el de la carga inicial expira al minuto)
         try {
+            const tokenFresco = await window.Clerk.session.getToken();
             const response = await fetch('/api/crear-curso-dinamico', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokenFresco}` },
                 body: JSON.stringify({ nombreCurso, estudiantesSeleccionados, estructura })
             });
             

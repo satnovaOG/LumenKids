@@ -1074,6 +1074,174 @@ app.get('/api/seguimiento/:idEstudiante', async (req, res) => {
     }
 });
 
+// =========================================================================
+// CURSOS DEL DOCENTE VISTOS POR EL ESTUDIANTE
+// =========================================================================
+
+// Listar las clases en las que está inscrito el estudiante
+app.get('/api/mis-clases', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+    if (!idUsuario) return res.status(401).json({ error: 'No autorizado' });
+
+    try {
+        const result = await pool.query(
+            `SELECT c.id_clase, c.nombre, m.nombre AS nombre_mentor,
+                    (SELECT COUNT(*)::int FROM Tema t WHERE t.id_clase = c.id_clase) AS total_modulos
+             FROM Clase c
+             JOIN Clase_Estudiante ce ON c.id_clase = ce.id_clase
+             LEFT JOIN Mentor m ON c.id_mentor = m.id_mentor
+             WHERE ce.id_estudiante = $1
+             ORDER BY c.id_clase`,
+            [idUsuario]
+        );
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error al obtener las clases del estudiante:', error);
+        res.status(500).json({ error: 'Fallo al cargar tus cursos.' });
+    }
+});
+
+// Contenido completo de una clase: módulos, lecciones y quizzes.
+// Las opciones se envían SIN el campo es_correcta: la calificación es del servidor.
+app.get('/api/clases/:idClase/contenido', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+    if (!idUsuario) return res.status(401).json({ error: 'No autorizado' });
+
+    const { idClase } = req.params;
+
+    try {
+        // El estudiante debe estar inscrito, o el usuario ser el mentor dueño / un admin
+        const resAcceso = await pool.query(
+            `SELECT 1 FROM Clase_Estudiante WHERE id_clase = $1 AND id_estudiante = $2
+             UNION SELECT 1 FROM Clase WHERE id_clase = $1 AND id_mentor = $2
+             UNION SELECT 1 FROM Administrador WHERE id_admin = $2`,
+            [idClase, idUsuario]
+        );
+        if (resAcceso.rows.length === 0) {
+            return res.status(403).json({ error: 'No estás inscrito en este curso.' });
+        }
+
+        const resClase = await pool.query(
+            `SELECT c.nombre, m.nombre AS nombre_mentor
+             FROM Clase c LEFT JOIN Mentor m ON c.id_mentor = m.id_mentor
+             WHERE c.id_clase = $1`,
+            [idClase]
+        );
+        if (resClase.rows.length === 0) return res.status(404).json({ error: 'El curso no existe.' });
+
+        const resTemas = await pool.query(
+            'SELECT id_tema, nombre_tema FROM Tema WHERE id_clase = $1 ORDER BY id_tema',
+            [idClase]
+        );
+
+        const temas = [];
+        for (const tema of resTemas.rows) {
+            const resLecciones = await pool.query(
+                'SELECT titulo, contenido FROM Leccion WHERE id_tema = $1 ORDER BY id_leccion',
+                [tema.id_tema]
+            );
+
+            const resEvaluaciones = await pool.query(
+                'SELECT id_evaluacion, titulo FROM Evaluacion WHERE id_tema = $1 ORDER BY id_evaluacion',
+                [tema.id_tema]
+            );
+
+            const evaluaciones = [];
+            for (const evaluacion of resEvaluaciones.rows) {
+                const resPreguntas = await pool.query(
+                    'SELECT id_pregunta, enunciado, tipo FROM Pregunta WHERE id_evaluacion = $1 ORDER BY id_pregunta',
+                    [evaluacion.id_evaluacion]
+                );
+
+                const preguntas = [];
+                for (const pregunta of resPreguntas.rows) {
+                    const resOpciones = await pool.query(
+                        'SELECT id_opcion, texto_opcion FROM Opcion WHERE id_pregunta = $1 ORDER BY id_opcion',
+                        [pregunta.id_pregunta]
+                    );
+                    preguntas.push({ ...pregunta, opciones: resOpciones.rows });
+                }
+
+                evaluaciones.push({ ...evaluacion, preguntas });
+            }
+
+            temas.push({
+                id_tema: tema.id_tema,
+                nombre_tema: tema.nombre_tema,
+                lecciones: resLecciones.rows,
+                evaluaciones: evaluaciones
+            });
+        }
+
+        res.status(200).json({ ...resClase.rows[0], temas });
+    } catch (error) {
+        console.error('Error al cargar el contenido del curso:', error);
+        res.status(500).json({ error: 'Fallo al cargar el contenido del curso.' });
+    }
+});
+
+// Calificación automática de un quiz del curso.
+// Recibe { respuestas: { idPregunta: [idOpcion, ...] } } y devuelve el puntaje.
+app.post('/api/evaluaciones/:idEvaluacion/responder', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+    if (!idUsuario) return res.status(401).json({ error: 'No autorizado' });
+
+    const { idEvaluacion } = req.params;
+    const respuestas = req.body.respuestas || {};
+
+    try {
+        // Verificamos que el estudiante esté inscrito en la clase dueña de esta evaluación
+        const resAcceso = await pool.query(
+            `SELECT 1 FROM Evaluacion e
+             JOIN Tema t ON e.id_tema = t.id_tema
+             JOIN Clase_Estudiante ce ON t.id_clase = ce.id_clase
+             WHERE e.id_evaluacion = $1 AND ce.id_estudiante = $2`,
+            [idEvaluacion, idUsuario]
+        );
+        if (resAcceso.rows.length === 0) {
+            return res.status(403).json({ error: 'No estás inscrito en el curso de esta evaluación.' });
+        }
+
+        const resPreguntas = await pool.query(
+            'SELECT id_pregunta FROM Pregunta WHERE id_evaluacion = $1',
+            [idEvaluacion]
+        );
+
+        let correctas = 0;
+        const detalle = [];
+
+        for (const pregunta of resPreguntas.rows) {
+            const resCorrectas = await pool.query(
+                'SELECT id_opcion FROM Opcion WHERE id_pregunta = $1 AND es_correcta = TRUE',
+                [pregunta.id_pregunta]
+            );
+            const idsCorrectos = resCorrectas.rows.map(o => o.id_opcion).sort();
+            const idsMarcados = (respuestas[pregunta.id_pregunta] || []).map(Number).sort();
+
+            const acierto = idsCorrectos.length === idsMarcados.length &&
+                idsCorrectos.every((id, i) => id === idsMarcados[i]);
+
+            if (acierto) correctas++;
+            detalle.push({ id_pregunta: pregunta.id_pregunta, correcta: acierto });
+        }
+
+        await pool.query('UPDATE Estudiante SET ultima_actividad = NOW() WHERE id_estudiante = $1', [idUsuario]);
+
+        res.status(200).json({
+            total: resPreguntas.rows.length,
+            correctas: correctas,
+            detalle: detalle,
+            mensaje: `Obtuviste ${correctas} de ${resPreguntas.rows.length} respuestas correctas.`
+        });
+    } catch (error) {
+        console.error('Error al calificar la evaluación:', error);
+        res.status(500).json({ error: 'Fallo al calificar la evaluación.' });
+    }
+});
+
 app.get('/api/config', (req, res) => {
     // Es seguro enviar la Publishable Key, pero NUNCA envíes la Secret Key aquí.
     res.json({ 
