@@ -493,3 +493,357 @@ body {
     .dashboard-header h1 { font-size: 1.3rem; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* =========================================================================
+   LANDING PAGE (página de inicio de la fundación)
+   ========================================================================= */
+
+body.landing {
+    display: block;
+    padding: 0;
+}
+
+/* ---------- Navbar ---------- */
+
+.landing-nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 14px 5%;
+    background: rgba(15, 16, 53, 0.75);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--cristal-borde);
+}
+
+.nav-logo {
+    font-size: 1.35rem;
+    font-weight: 900;
+    text-decoration: none;
+    background: linear-gradient(90deg, #a5b4fc, #22d3ee);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.nav-links {
+    display: flex;
+    gap: 22px;
+}
+
+.nav-links a {
+    color: var(--texto-suave);
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.92rem;
+    transition: color 0.2s ease;
+}
+
+.nav-links a:hover { color: var(--texto); }
+
+.nav-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.nav-actions .custom-button { width: auto; padding: 9px 18px; font-size: 0.9rem; }
+
+/* ---------- Hero ---------- */
+
+.hero {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 90px 20px 70px;
+    text-align: center;
+}
+
+.hero-badge {
+    display: inline-block;
+    padding: 7px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--cristal-borde);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--acento);
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    margin-bottom: 24px;
+}
+
+.hero h1 {
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-weight: 900;
+    line-height: 1.15;
+    margin-bottom: 20px;
+}
+
+.hero-gradiente {
+    background: linear-gradient(90deg, #a5b4fc, #22d3ee, #4ade80);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.hero p {
+    font-size: 1.1rem;
+    color: var(--texto-suave);
+    max-width: 640px;
+    margin: 0 auto 30px;
+    line-height: 1.6;
+}
+
+.hero-acciones {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 50px;
+}
+
+.hero-acciones .custom-button { width: auto; padding: 14px 30px; font-size: 1.05rem; }
+
+.hero-cifras {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 14px;
+    max-width: 640px;
+    margin: 0 auto;
+}
+
+.hero-cifras div {
+    background: var(--cristal);
+    border: 1px solid var(--cristal-borde);
+    border-radius: var(--radio-sm);
+    padding: 16px 10px;
+}
+
+.hero-cifras strong {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 900;
+    color: var(--acento);
+}
+
+.hero-cifras span {
+    font-size: 0.78rem;
+    color: var(--texto-suave);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+/* ---------- Secciones ---------- */
+
+.landing-seccion {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 60px 20px;
+    text-align: center;
+}
+
+.landing-seccion h2 {
+    font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+    font-weight: 900;
+    margin-bottom: 8px;
+}
+
+.seccion-sub {
+    color: var(--texto-suave);
+    margin-bottom: 36px;
+    font-size: 1.02rem;
+}
+
+/* Qué ofrecemos */
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 18px;
+}
+
+.feature-card {
+    background: var(--cristal);
+    border: 1px solid var(--cristal-borde);
+    border-radius: var(--radio);
+    padding: 28px 22px;
+    text-align: left;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+    border-color: rgba(99, 102, 241, 0.5);
+}
+
+.feature-icono { font-size: 2.2rem; display: block; margin-bottom: 14px; }
+.feature-card h3 { font-size: 1.15rem; margin-bottom: 8px; }
+.feature-card p { font-size: 0.92rem; color: var(--texto-suave); line-height: 1.55; }
+
+/* Cómo funciona */
+.pasos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 18px;
+}
+
+.paso-card {
+    background: rgba(2, 6, 23, 0.28);
+    border: 1px solid var(--cristal-borde);
+    border-radius: var(--radio);
+    padding: 28px 22px;
+    text-align: left;
+}
+
+.paso-numero {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primario), #8b5cf6);
+    font-size: 1.2rem;
+    font-weight: 900;
+    margin-bottom: 14px;
+}
+
+.paso-card h3 { font-size: 1.1rem; margin-bottom: 8px; }
+.paso-card p { font-size: 0.92rem; color: var(--texto-suave); line-height: 1.55; }
+
+/* Misión */
+.mision-card {
+    background: var(--cristal);
+    border: 1px solid var(--cristal-borde);
+    border-radius: var(--radio);
+    padding: 44px 36px;
+    box-shadow: var(--sombra);
+}
+
+.mision-card p {
+    max-width: 720px;
+    margin: 0 auto 16px;
+    color: var(--texto-suave);
+    font-size: 1.05rem;
+    line-height: 1.7;
+}
+
+/* ---------- Sección de acceso ---------- */
+
+.acceso-card {
+    background: var(--cristal);
+    border: 1px solid var(--cristal-borde);
+    border-radius: var(--radio);
+    box-shadow: var(--sombra);
+    padding: 32px;
+    max-width: 560px;
+    margin: 0 auto;
+}
+
+.acceso-toggle {
+    display: flex;
+    background: rgba(2, 6, 23, 0.35);
+    border: 1px solid var(--cristal-borde);
+    border-radius: 999px;
+    padding: 5px;
+    margin-bottom: 24px;
+}
+
+.acceso-toggle button {
+    flex: 1;
+    padding: 11px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--texto-suave);
+    font-weight: 800;
+    font-size: 0.98rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.acceso-toggle button.activa {
+    background: linear-gradient(135deg, var(--primario), #8b5cf6);
+    color: white;
+    box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+}
+
+.acceso-pregunta {
+    font-weight: 800;
+    margin-bottom: 12px;
+}
+
+.rol-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.rol-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 18px 12px;
+    border-radius: var(--radio-sm);
+    border: 2px solid var(--cristal-borde);
+    background: rgba(2, 6, 23, 0.3);
+    color: var(--texto);
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s ease;
+}
+
+.rol-card:hover { border-color: rgba(99, 102, 241, 0.6); }
+
+.rol-card.activa {
+    border-color: var(--primario);
+    background: rgba(99, 102, 241, 0.18);
+    box-shadow: 0 6px 16px rgba(99, 102, 241, 0.25);
+}
+
+.rol-icono { font-size: 1.8rem; }
+.rol-card strong { font-size: 0.98rem; }
+.rol-card span:last-child { font-size: 0.78rem; color: var(--texto-suave); }
+
+#parent-code-container {
+    text-align: left;
+    margin-top: 6px;
+}
+
+#parent-code-container label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 800;
+    margin-bottom: 8px;
+}
+
+.acceso-nota {
+    font-size: 0.8rem;
+    color: var(--texto-suave);
+    margin-top: 8px;
+    line-height: 1.5;
+}
+
+#sign-in-container { margin-top: 22px; }
+
+/* ---------- Footer ---------- */
+
+.landing-footer {
+    border-top: 1px solid var(--cristal-borde);
+    padding: 28px 20px;
+    text-align: center;
+    color: var(--texto-suave);
+    font-size: 0.9rem;
+    margin-top: 40px;
+}
+
+@media (max-width: 720px) {
+    .nav-links { display: none; }
+    .hero { padding: 55px 20px 50px; }
+    .rol-cards { grid-template-columns: 1fr; }
+    .acceso-card { padding: 24px 18px; }
+}
