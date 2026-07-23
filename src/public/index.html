@@ -4,262 +4,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LumenKids - Ecosistema Educativo Inteligente</title>
-    <meta name="description" content="Fundación educativa que desarrolla las habilidades de niños y jóvenes de Barranquilla con rutas de aprendizaje, retos gamificados y mentoría.">
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&display=swap" rel="stylesheet">
+    <title>LumenKids - Acceso</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
-<body class="landing">
+<body>
+    <div class="login-wrapper">
+        <header class="login-header">
+            <h1>LumenKids</h1>
+            <p>Ecosistema Educativo Inteligente</p>
+            <div id="user-button"></div>
+        </header>
 
-    <!-- ============================ NAVBAR ============================ -->
-    <nav class="landing-nav">
-        <a href="#inicio" class="nav-logo">✨ LumenKids</a>
-        <div class="nav-links">
-            <a href="#ofrecemos">Qué ofrecemos</a>
-            <a href="#como-funciona">Cómo funciona</a>
-            <a href="#mision">Nuestra misión</a>
-        </div>
-        <div class="nav-actions">
-            <button type="button" class="custom-button secundario" data-abrir-acceso="login">Iniciar Sesión</button>
-            <button type="button" class="custom-button" data-abrir-acceso="signup">Únete gratis</button>
-        </div>
-    </nav>
+        <main class="login-main">
+            <div class="controls-container" id="controls-container">
+                <label for="user-action">¿Qué deseas hacer?</label>
+                <select id="user-action" class="custom-select">
+                    <option value="login">Iniciar Sesión</option>
+                    <option value="signup">Crear Cuenta (Registrarse)</option>
+                </select>
 
-    <!-- ============================ HERO ============================ -->
-    <header class="hero" id="inicio">
-        <span class="hero-badge">Fundación educativa · Barranquilla, Colombia</span>
-        <h1>El talento está en todas partes.<br><span class="hero-gradiente">Las oportunidades, ahora también.</span></h1>
-        <p>
-            LumenKids es un ecosistema educativo gratuito que desarrolla las habilidades de niños y
-            jóvenes de las zonas más vulnerables de Barranquilla, con matemáticas, pensamiento
-            computacional y cultura financiera, a su propio ritmo y acompañados por mentores.
-        </p>
-        <div class="hero-acciones">
-            <button type="button" class="custom-button" data-abrir-acceso="signup">Comienza a aprender</button>
-            <button type="button" class="custom-button secundario" data-abrir-acceso="login">Ya tengo cuenta</button>
-        </div>
-        <div class="hero-cifras">
-            <div><strong>3</strong><span>Áreas de aprendizaje</span></div>
-            <div><strong>24/7</strong><span>Acceso a la plataforma</span></div>
-            <div><strong>100%</strong><span>Gratuito</span></div>
-            <div><strong>10-18</strong><span>Años de edad</span></div>
-        </div>
-    </header>
+                <label id="label-user-role" for="user-role">Selecciona tu rol:</label>
+                <select id="user-role" class="custom-select">
+                    <option value="Estudiante">Estudiante</option>
+                    <option value="Padre">Padre</option>
+                    <option value="Mentor">Mentor</option>
+                </select>
 
-    <!-- ============================ QUÉ OFRECEMOS ============================ -->
-    <section class="landing-seccion" id="ofrecemos">
-        <h2>Qué ofrecemos</h2>
-        <p class="seccion-sub">Un ecosistema completo para estudiantes, familias y mentores.</p>
-        <div class="features-grid">
-            <article class="feature-card">
-                <span class="feature-icono">🚀</span>
-                <h3>Rutas de aprendizaje</h3>
-                <p>Cursos guiados de Matemática Elemental, Pensamiento Computacional y Cultura Financiera, conectados con contenido de plataformas como Coursera.</p>
-            </article>
-            <article class="feature-card">
-                <span class="feature-icono">🎮</span>
-                <h3>Retos y olimpiadas</h3>
-                <p>Retos semanales, juegos matemáticos y olimpiadas internas con puntos, niveles e insignias que hacen del aprendizaje una aventura.</p>
-            </article>
-            <article class="feature-card">
-                <span class="feature-icono">👨‍👩‍👧</span>
-                <h3>Panel para padres</h3>
-                <p>Las familias ven el progreso, las fortalezas y reciben alertas tempranas de desmotivación, explicadas en lenguaje sencillo.</p>
-            </article>
-            <article class="feature-card">
-                <span class="feature-icono">🧭</span>
-                <h3>Mentoría personalizada</h3>
-                <p>Docentes y mentores hacen seguimiento pedagógico, crean cursos propios y envían orientaciones directas a cada estudiante.</p>
-            </article>
-        </div>
-    </section>
-
-    <!-- ============================ CÓMO FUNCIONA ============================ -->
-    <section class="landing-seccion" id="como-funciona">
-        <h2>Cómo funciona</h2>
-        <p class="seccion-sub">Empezar toma menos de dos minutos.</p>
-        <div class="pasos-grid">
-            <article class="paso-card">
-                <span class="paso-numero">1</span>
-                <h3>Crea tu cuenta</h3>
-                <p>Regístrate como estudiante y recibe tu código único para que tu familia pueda acompañarte.</p>
-            </article>
-            <article class="paso-card">
-                <span class="paso-numero">2</span>
-                <h3>Aprende a tu ritmo</h3>
-                <p>Avanza en tus rutas de aprendizaje y resuelve los retos de la semana cuando quieras, desde cualquier lugar.</p>
-            </article>
-            <article class="paso-card">
-                <span class="paso-numero">3</span>
-                <h3>Gana logros</h3>
-                <p>Acumula puntos, sube de nivel y desbloquea insignias mientras tu mentor te orienta en el camino.</p>
-            </article>
-        </div>
-    </section>
-
-    <!-- ============================ MISIÓN ============================ -->
-    <section class="landing-seccion" id="mision">
-        <div class="mision-card">
-            <h2>Nuestra misión</h2>
-            <p>
-                Creemos que el código postal no debe definir el futuro de nadie. Trabajamos con niños y
-                jóvenes de los barrios con menos recursos de Barranquilla para despertar su potencial en
-                matemáticas y tecnología, fomentar su autonomía y abrirles la puerta a las oportunidades
-                del mundo digital.
-            </p>
-            <p>
-                La plataforma es gratuita, funciona las 24 horas y conecta a estudiantes, familias y
-                mentores voluntarios en una misma comunidad de aprendizaje.
-            </p>
-        </div>
-    </section>
-
-    <!-- ============================ ACCESO ============================ -->
-    <section class="landing-seccion" id="acceso">
-        <h2>Únete a LumenKids</h2>
-        <p class="seccion-sub">Inicia sesión o crea tu cuenta en segundos.</p>
-
-        <div class="acceso-card">
-            <!-- Se muestra mientras el usuario NO tiene sesión activa -->
-            <div id="acceso-controles">
-                <div class="acceso-toggle" role="tablist">
-                    <button type="button" id="btn-modo-login" class="activa">Iniciar Sesión</button>
-                    <button type="button" id="btn-modo-signup">Crear Cuenta</button>
+                <div id="parent-code-container" style="display: none; margin-top: 15px;">
+                    <label for="parent-code">Código de Vinculación de tu hijo:</label>
+                    <input type="text" id="parent-code" class="custom-input" placeholder="Ej: A1B2C3">
                 </div>
 
-                <!-- Selección de rol (solo para Crear Cuenta): tarjetas, sin menús desplegables -->
-                <div id="seleccion-rol" class="hidden">
-                    <p class="acceso-pregunta">¿Quién eres?</p>
-                    <div class="rol-cards">
-                        <button type="button" class="rol-card activa" data-rol="Estudiante">
-                            <span class="rol-icono">🎓</span>
-                            <strong>Estudiante</strong>
-                            <span>Quiero aprender y resolver retos</span>
-                        </button>
-                        <button type="button" class="rol-card" data-rol="Padre">
-                            <span class="rol-icono">👪</span>
-                            <strong>Padre / Acudiente</strong>
-                            <span>Quiero acompañar a mi hijo</span>
-                        </button>
-                    </div>
-
-                    <div id="parent-code-container" class="hidden">
-                        <label for="parent-code">Código de vinculación de tu hijo:</label>
-                        <input type="text" id="parent-code" class="custom-input" placeholder="Ej: A1B2C3">
-                        <p class="acceso-nota">Tu hijo recibió este código al registrarse. Si aún no lo tienes, podrás vincularlo después.</p>
-                    </div>
-
-                    <p class="acceso-nota" style="margin-top: 14px;">
-                        ¿Eres docente o mentor? Las cuentas de mentor las crea la administración de la
-                        fundación. Si ya tienes una, usa "Iniciar Sesión".
-                    </p>
+                <div id="mentor-warning" style="display: none; margin-top: 15px; color: #ffcccc; font-size: 0.9rem;">
+                    Las cuentas de Mentor son creadas por la Administración. Por favor, selecciona "Iniciar Sesión" si ya tienes cuenta.
                 </div>
-
-                <div id="sign-in-container"></div>
             </div>
 
-            <div id="user-button"></div>
-            <div id="system-message" class="system-message hidden"></div>
-        </div>
-    </section>
-
-    <footer class="landing-footer">
-        <p>✨ LumenKids · Ecosistema Educativo Inteligente · Barranquilla, Colombia</p>
-    </footer>
+            <div id="sign-in-container" style="margin-top: 20px;"></div>
+            <div id="system-message" style="display: none; margin-top: 20px; font-weight: bold; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;"></div>
+        </main>
+    </div>
 
     <script>
-        // ------------------------------------------------------------
-        // Estado de la sección de acceso (sin menús desplegables).
-        // Los controles funcionan de inmediato; Clerk se monta cuando carga.
-        // ------------------------------------------------------------
-        let accion = localStorage.getItem('lumenkids_action') || 'login';
-        let rol = localStorage.getItem('lumenkids_role') || 'Estudiante';
-        let componenteMontado = null; // 'signin' o 'signup'
-
-        function actualizarInterfaz() {
-            const parentCodeInput = document.getElementById('parent-code');
-            localStorage.setItem('lumenkids_action', accion);
-            localStorage.setItem('lumenkids_role', rol);
-            localStorage.setItem('lumenkids_parent_code', parentCodeInput.value);
-
-            document.getElementById('btn-modo-login').classList.toggle('activa', accion === 'login');
-            document.getElementById('btn-modo-signup').classList.toggle('activa', accion === 'signup');
-            document.getElementById('seleccion-rol').classList.toggle('hidden', accion !== 'signup');
-
-            document.querySelectorAll('.rol-card').forEach(card => card.classList.toggle('activa', card.dataset.rol === rol));
-            document.getElementById('parent-code-container').classList.toggle('hidden', !(accion === 'signup' && rol === 'Padre'));
-
-            montarComponenteClerk();
-        }
-
-        function montarComponenteClerk() {
-            if (!window.Clerk || !window.Clerk.loaded) return;
-            const signInDiv = document.getElementById('sign-in-container');
-
-            if (componenteMontado === 'signin') window.Clerk.unmountSignIn(signInDiv);
-            if (componenteMontado === 'signup') window.Clerk.unmountSignUp(signInDiv);
-
-            if (accion === 'login') {
-                window.Clerk.mountSignIn(signInDiv, {
-                    localization: {
-                        signIn: {
-                            start: {
-                                title: "Iniciar Sesión",
-                                subtitle: "¡Bienvenido de vuelta a LumenKids!",
-                                actionText: "¿No tienes una cuenta?",
-                                actionLink: "Regístrate"
-                            }
-                        }
-                    }
-                });
-                componenteMontado = 'signin';
-            } else {
-                window.Clerk.mountSignUp(signInDiv, {
-                    localization: {
-                        signUp: {
-                            start: {
-                                title: rol === 'Padre' ? "Crear cuenta de acudiente" : "Crear cuenta de estudiante",
-                                subtitle: "Únete gratis a LumenKids",
-                                actionText: "¿Ya tienes una cuenta?",
-                                actionLink: "Inicia Sesión"
-                            }
-                        }
-                    }
-                });
-                componenteMontado = 'signup';
-            }
-        }
-
-        // Controles interactivos disponibles desde el primer momento
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('parent-code').value = localStorage.getItem('lumenkids_parent_code') || '';
-
-            document.getElementById('btn-modo-login').addEventListener('click', () => { accion = 'login'; actualizarInterfaz(); });
-            document.getElementById('btn-modo-signup').addEventListener('click', () => { accion = 'signup'; actualizarInterfaz(); });
-
-            document.querySelectorAll('.rol-card').forEach(card => {
-                card.addEventListener('click', () => { rol = card.dataset.rol; actualizarInterfaz(); });
-            });
-
-            document.getElementById('parent-code').addEventListener('input', (e) => {
-                localStorage.setItem('lumenkids_parent_code', e.target.value);
-            });
-
-            // Botones del navbar y el hero: fijan el modo y llevan a la sección de acceso
-            document.querySelectorAll('[data-abrir-acceso]').forEach(boton => {
-                boton.addEventListener('click', () => {
-                    accion = boton.dataset.abrirAcceso;
-                    actualizarInterfaz();
-                    document.getElementById('acceso').scrollIntoView({ behavior: 'smooth' });
-                });
-            });
-
-            actualizarInterfaz();
-        });
-
-        // ------------------------------------------------------------
-        // Carga dinámica de Clerk con la clave pública del servidor
-        // ------------------------------------------------------------
+        // Lógica de carga dinámica de Clerk
         window.addEventListener('load', async function () {
             try {
                 const configRes = await fetch('/api/config');
@@ -270,33 +58,112 @@
                 clerkScript.setAttribute('data-clerk-publishable-key', configData.clerkPublishableKey);
                 clerkScript.async = true;
                 clerkScript.crossOrigin = "anonymous";
-
-                clerkScript.onload = async function () {
+                
+                clerkScript.onload = async function() {
                     await window.Clerk.load();
-
-                    if (window.Clerk.user) {
-                        document.getElementById('acceso-controles').classList.add('hidden');
-                        window.Clerk.mountUserButton(document.getElementById('user-button'));
-                        sincronizarUsuarioConBaseDeDatos(window.Clerk.user);
-                    } else {
-                        montarComponenteClerk();
-                    }
+                    inicializarPagina(); 
                 };
 
                 document.head.appendChild(clerkScript);
             } catch (error) {
                 console.error("Error al cargar la configuración de Clerk:", error);
-                const mensaje = document.getElementById('system-message');
-                mensaje.classList.remove('hidden');
-                mensaje.classList.add('error');
-                mensaje.textContent = 'Error de conexión con el servidor.';
+                document.getElementById('system-message').style.display = 'block';
+                document.getElementById('system-message').innerHTML = 'Error de conexión con el servidor.';
             }
         });
 
-        // ------------------------------------------------------------
-        // Sincronización con PostgreSQL y redirección por rol
-        // (misma lógica de siempre: registro, código de vinculación y paneles)
-        // ------------------------------------------------------------
+        // Lógica principal de la interfaz
+        function inicializarPagina() {
+            const actionSelect = document.getElementById('user-action');
+            const roleSelect = document.getElementById('user-role');
+            const labelUserRole = document.getElementById('label-user-role');
+            const parentCodeInput = document.getElementById('parent-code');
+            const parentCodeContainer = document.getElementById('parent-code-container');
+            const mentorWarning = document.getElementById('mentor-warning');
+            const signInDiv = document.getElementById('sign-in-container');
+            const controlsContainer = document.getElementById('controls-container');
+
+            actionSelect.value = localStorage.getItem('lumenkids_action') || 'login';
+            roleSelect.value = localStorage.getItem('lumenkids_role') || 'Estudiante';
+            parentCodeInput.value = localStorage.getItem('lumenkids_parent_code') || '';
+
+            function actualizarInterfaz() {
+                const accion = actionSelect.value;
+                const rol = roleSelect.value;
+
+                localStorage.setItem('lumenkids_action', accion);
+                localStorage.setItem('lumenkids_role', rol);
+                localStorage.setItem('lumenkids_parent_code', parentCodeInput.value);
+
+                parentCodeContainer.style.display = 'none';
+                mentorWarning.style.display = 'none';
+                signInDiv.style.display = 'flex';
+                document.getElementById('system-message').style.display = 'none';
+
+                if (accion === 'login') {
+                    roleSelect.style.display = 'none';
+                    labelUserRole.style.display = 'none';
+                    
+                    window.Clerk.mountSignIn(signInDiv, {
+                        localization: {
+                            signIn: {
+                                start: {
+                                    title: "Iniciar Sesión",
+                                    subtitle: "¡Bienvenido! Por favor inicia sesión para continuar",
+                                    actionText: "¿No tienes una cuenta?",
+                                    actionLink: "Regístrate"
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    roleSelect.style.display = 'block';
+                    labelUserRole.style.display = 'block';
+
+                    if (rol === 'Padre') {
+                        parentCodeContainer.style.display = 'flex';
+                        parentCodeContainer.style.flexDirection = 'column';
+                    } else if (rol === 'Mentor') {
+                        mentorWarning.style.display = 'block';
+                        signInDiv.style.display = 'none'; 
+                    }
+
+                    if (signInDiv.style.display !== 'none') {
+                        window.Clerk.mountSignUp(signInDiv, {
+                            localization: {
+                                signUp: {
+                                    start: {
+                                        title: "Crear Cuenta",
+                                        subtitle: "Únete a LumenKids",
+                                        actionText: "¿Ya tienes una cuenta?",
+                                        actionLink: "Inicia Sesión"
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+
+            actionSelect.addEventListener('change', actualizarInterfaz);
+            roleSelect.addEventListener('change', actualizarInterfaz);
+            parentCodeInput.addEventListener('input', () => {
+                localStorage.setItem('lumenkids_parent_code', parentCodeInput.value);
+            });
+
+            if (window.Clerk.user) {
+                controlsContainer.style.display = 'none';
+                signInDiv.style.display = 'none';
+                
+                const userButtonDiv = document.getElementById('user-button');
+                window.Clerk.mountUserButton(userButtonDiv);
+                
+                sincronizarUsuarioConBaseDeDatos(window.Clerk.user);
+            } else {
+                actualizarInterfaz();
+            }
+        }
+
         async function sincronizarUsuarioConBaseDeDatos(clerkUser) {
             const accion = localStorage.getItem('lumenkids_action');
             const rol = localStorage.getItem('lumenkids_role');
@@ -305,7 +172,6 @@
             const nombre = clerkUser.fullName || clerkUser.firstName || 'Usuario';
             const correo = clerkUser.primaryEmailAddress ? clerkUser.primaryEmailAddress.emailAddress : '';
             const systemMessage = document.getElementById('system-message');
-            systemMessage.classList.remove('hidden', 'error', 'exito');
 
             if (accion === 'signup' && localStorage.getItem('lumenkids_synced') !== 'true') {
                 try {
@@ -316,29 +182,28 @@
                             body: JSON.stringify({ nombre: nombre })
                         });
                         const data = await response.json();
-
+                        
                         if (response.ok) {
-                            systemMessage.classList.add('exito');
-                            systemMessage.innerHTML = `¡Registro exitoso!<br>Tu Código de Vinculación es: <strong style="font-size: 1.2rem;">${data.codigo}</strong><br>Compártelo con tus padres. En unos segundos entrarás a tu panel...`;
-                            setTimeout(() => window.location.replace('/dashboard.html'), 6000);
+                            systemMessage.style.display = 'block';
+                            systemMessage.innerHTML = `¡Registro exitoso!<br>Tu Código de Vinculación es: <span style="color: #4ade80; font-size: 1.2rem;">${data.codigo}</span><br>Compártelo con tus padres.`;
                         }
-                    }
+                    } 
                     else if (rol === 'Padre') {
                         const response = await fetch('/api/registro-padre', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                             body: JSON.stringify({ nombre: nombre, correo: correo, codigoHijo: codigoPadre })
                         });
-
+                        
                         const data = await response.json();
-
+                        systemMessage.style.display = 'block';
+                        
                         if (response.ok) {
-                            systemMessage.classList.add('exito');
-                            systemMessage.innerHTML = `${data.mensaje}<br>En unos segundos entrarás a tu panel...`;
-                            setTimeout(() => window.location.replace('/dashboard.html'), 4000);
+                            systemMessage.innerHTML = `¡Vinculación familiar exitosa!`;
+                            systemMessage.style.color = '#4ade80';
                         } else {
-                            systemMessage.classList.add('error');
                             systemMessage.innerHTML = `Error: ${data.error}`;
+                            systemMessage.style.color = '#f87171';
                         }
                     }
                     localStorage.setItem('lumenkids_synced', 'true');
@@ -347,21 +212,24 @@
                 }
             } else {
                 try {
-                    systemMessage.innerHTML = 'Iniciando sesión, preparando tu panel...';
+                    systemMessage.style.display = 'block';
+                    systemMessage.innerHTML = 'Iniciando sesión, preparanda tu panel...';
 
                     const checkRes = await fetch('/api/verificar-rol', {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
-
+                    
                     const dataCheck = await checkRes.json();
-
+                    
                     if (dataCheck.rol === 'admin') {
+                        // Si es el superusuario, va al panel de administración
                         window.location.replace('/admin.html');
                     } else {
+                        // Para Docentes, Estudiantes y Padres, los enviamos al panel principal
                         window.location.replace('/dashboard.html');
                     }
                 } catch (error) {
-                    systemMessage.classList.add('error');
+                    systemMessage.style.display = 'block';
                     systemMessage.innerHTML = 'Error al comunicarse con el servidor.';
                 }
             }
