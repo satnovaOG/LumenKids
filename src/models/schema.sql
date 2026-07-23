@@ -155,5 +155,58 @@ ALTER TABLE Tema DROP CONSTRAINT IF EXISTS fk_ruta_tema;
 ALTER TABLE Tema DROP COLUMN IF EXISTS id_ruta;
 
 -- Añadimos la nueva columna para que los módulos pertenezcan a una Clase
-ALTER TABLE Tema ADD COLUMN id_clase INTEGER;
+ALTER TABLE Tema ADD COLUMN IF NOT EXISTS id_clase INTEGER;
+ALTER TABLE Tema DROP CONSTRAINT IF EXISTS fk_clase_tema;
 ALTER TABLE Tema ADD CONSTRAINT fk_clase_tema FOREIGN KEY (id_clase) REFERENCES Clase(id_clase) ON DELETE CASCADE;
+
+-- =========================================================================
+-- AMPLIACIÓN: GAMIFICACIÓN (RF2), SEGUIMIENTO PEDAGÓGICO (RF4) Y PANELES (RF3/RF5)
+-- =========================================================================
+
+-- 1. Retos semanales, olimpiadas y juegos matemáticos
+CREATE TABLE IF NOT EXISTS Reto (
+    id_reto SERIAL PRIMARY KEY,
+    titulo VARCHAR(255) NOT NULL,
+    descripcion TEXT,
+    tipo VARCHAR(50) NOT NULL DEFAULT 'semanal', -- 'semanal', 'olimpiada' o 'juego'
+    area VARCHAR(100),
+    puntos INTEGER NOT NULL DEFAULT 50,
+    pregunta TEXT NOT NULL,
+    -- Opciones separadas por '|'. Si queda vacío, la respuesta es numérica o de texto libre.
+    opciones TEXT,
+    respuesta_correcta VARCHAR(255) NOT NULL,
+    activo BOOLEAN NOT NULL DEFAULT TRUE,
+    creado_por VARCHAR(255),
+    fecha_creacion TIMESTAMP DEFAULT NOW()
+);
+
+-- 2. Intentos de los estudiantes (validación y puntaje automáticos)
+CREATE TABLE IF NOT EXISTS Reto_Intento (
+    id_intento SERIAL PRIMARY KEY,
+    id_reto INTEGER NOT NULL,
+    id_estudiante VARCHAR(255) NOT NULL,
+    respuesta VARCHAR(255),
+    es_correcta BOOLEAN NOT NULL,
+    puntos_obtenidos INTEGER NOT NULL DEFAULT 0,
+    fecha TIMESTAMP DEFAULT NOW(),
+    UNIQUE (id_reto, id_estudiante),
+    CONSTRAINT fk_reto_intento
+        FOREIGN KEY(id_reto) REFERENCES Reto(id_reto) ON DELETE CASCADE,
+    CONSTRAINT fk_estudiante_intento
+        FOREIGN KEY(id_estudiante) REFERENCES Estudiante(id_estudiante) ON DELETE CASCADE
+);
+
+-- 3. Seguimiento pedagógico del mentor: orientaciones (visibles) y notas privadas
+CREATE TABLE IF NOT EXISTS Seguimiento (
+    id_seguimiento SERIAL PRIMARY KEY,
+    id_mentor VARCHAR(255) NOT NULL,
+    id_estudiante VARCHAR(255) NOT NULL,
+    tipo VARCHAR(30) NOT NULL DEFAULT 'orientacion', -- 'orientacion' (la ven estudiante y padre) o 'nota' (privada)
+    mensaje TEXT NOT NULL,
+    fecha TIMESTAMP DEFAULT NOW(),
+    CONSTRAINT fk_estudiante_seguimiento
+        FOREIGN KEY(id_estudiante) REFERENCES Estudiante(id_estudiante) ON DELETE CASCADE
+);
+
+-- 4. Registro de actividad para las alertas de desmotivación del Panel de Padres
+ALTER TABLE Estudiante ADD COLUMN IF NOT EXISTS ultima_actividad TIMESTAMP DEFAULT NOW();
