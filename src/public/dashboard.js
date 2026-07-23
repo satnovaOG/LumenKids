@@ -507,11 +507,6 @@ async function cargarPanelPadre() {
 function configurarPanelDocente() {
     activarTabs('tabs-docente');
 
-    // Cambio de contraseña con el modal seguro de Clerk
-    document.getElementById('btn-cambiar-password').addEventListener('click', () => {
-        window.Clerk.openUserProfile();
-    });
-
     cargarEstudiantesMentor();
     cargarSelectorEstudiantes();
 

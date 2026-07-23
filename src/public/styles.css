@@ -214,9 +214,27 @@ body {
 .system-message.exito { background: rgba(74, 222, 128, 0.15); color: var(--exito); }
 .system-message.error { background: rgba(248, 113, 113, 0.15); color: var(--peligro); }
 
-#user-button, #sign-in-container {
+#sign-in-container {
     display: flex;
     justify-content: center;
+    align-items: center;
+    width: 100%;
+}
+
+/* El botón de perfil de Clerk se alinea a la derecha en las cabeceras de los paneles */
+#user-button {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* Centramos el widget de Clerk (rootBox + card) dentro de la sección de acceso */
+#sign-in-container .cl-rootBox,
+#sign-in-container .cl-card,
+#sign-in-container > div {
+    margin-left: auto !important;
+    margin-right: auto !important;
 }
 
 /* ---------- Navegación por pestañas de los paneles ---------- */
@@ -740,6 +758,16 @@ body.landing {
     padding: 32px;
     max-width: 560px;
     margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+#acceso-controles {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .acceso-toggle {
@@ -749,6 +777,11 @@ body.landing {
     border-radius: 999px;
     padding: 5px;
     margin-bottom: 24px;
+    width: 100%;
+}
+
+#seleccion-rol {
+    width: 100%;
 }
 
 .acceso-toggle button {
@@ -828,7 +861,18 @@ body.landing {
     line-height: 1.5;
 }
 
-#sign-in-container { margin-top: 22px; }
+#sign-in-container {
+    margin-top: 22px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+#sign-in-container .cl-rootBox {
+    width: 100%;
+    max-width: 400px;
+}
 
 /* ---------- Footer ---------- */
 

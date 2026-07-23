@@ -1242,6 +1242,129 @@ app.post('/api/evaluaciones/:idEvaluacion/responder', async (req, res) => {
     }
 });
 
+// =========================================================================
+// PANEL DE ADMINISTRACIÓN
+// =========================================================================
+
+async function exigirAdmin(req, res) {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+    if (!idUsuario) {
+        res.status(401).json({ error: 'No autorizado' });
+        return null;
+    }
+    const resAdmin = await pool.query('SELECT id_admin FROM Administrador WHERE id_admin = $1', [idUsuario]);
+    if (resAdmin.rows.length === 0) {
+        res.status(403).json({ error: 'Acceso denegado. Solo administradores.' });
+        return null;
+    }
+    return idUsuario;
+}
+
+// Listar todas las cuentas del sistema (estudiantes, mentores y padres)
+app.get('/api/admin/cuentas', async (req, res) => {
+    try {
+        if (!(await exigirAdmin(req, res))) return;
+
+        const [estudiantes, mentores, padres] = await Promise.all([
+            pool.query(`SELECT id_estudiante, nombre, edad, nivel, codigo_vinculacion, id_padre, ultima_actividad
+                        FROM Estudiante ORDER BY nombre`),
+            pool.query(`SELECT id_mentor, nombre, correo, id_admin FROM Mentor ORDER BY nombre`),
+            pool.query(`SELECT id_padre, nombre, correo FROM Padre ORDER BY nombre`)
+        ]);
+
+        res.status(200).json({
+            estudiantes: estudiantes.rows,
+            mentores: mentores.rows,
+            padres: padres.rows
+        });
+    } catch (error) {
+        console.error('Error al listar cuentas:', error);
+        res.status(500).json({ error: 'Fallo al cargar las cuentas.' });
+    }
+});
+
+// Listar todas las rutas de aprendizaje
+app.get('/api/admin/rutas', async (req, res) => {
+    try {
+        if (!(await exigirAdmin(req, res))) return;
+
+        const result = await pool.query(
+            `SELECT r.id_ruta, r.nombre_curso, r.area, r.url_coursera, m.nombre AS nombre_mentor,
+                    (SELECT COUNT(*)::int FROM Estudiante_Ruta er WHERE er.id_ruta = r.id_ruta) AS estudiantes_asignados
+             FROM Ruta_Aprendizaje r
+             LEFT JOIN Mentor m ON r.id_mentor = m.id_mentor
+             ORDER BY r.id_ruta DESC`
+        );
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error al listar rutas:', error);
+        res.status(500).json({ error: 'Fallo al cargar las rutas.' });
+    }
+});
+
+// Eliminar una ruta de aprendizaje
+app.delete('/api/admin/rutas/:idRuta', async (req, res) => {
+    try {
+        if (!(await exigirAdmin(req, res))) return;
+
+        const { idRuta } = req.params;
+        const result = await pool.query('DELETE FROM Ruta_Aprendizaje WHERE id_ruta = $1 RETURNING nombre_curso', [idRuta]);
+        if (result.rowCount === 0) return res.status(404).json({ error: 'La ruta no existe.' });
+
+        res.status(200).json({ mensaje: `Ruta "${result.rows[0].nombre_curso}" eliminada.` });
+    } catch (error) {
+        console.error('Error al eliminar ruta:', error);
+        res.status(500).json({ error: 'Fallo al eliminar la ruta.' });
+    }
+});
+
+// Listar todos los cursos (clases) del sistema
+app.get('/api/admin/cursos', async (req, res) => {
+    try {
+        if (!(await exigirAdmin(req, res))) return;
+
+        const result = await pool.query(
+            `SELECT c.id_clase, c.nombre, m.nombre AS nombre_mentor,
+                    (SELECT COUNT(*)::int FROM Clase_Estudiante ce WHERE ce.id_clase = c.id_clase) AS estudiantes_inscritos,
+                    (SELECT COUNT(*)::int FROM Tema t WHERE t.id_clase = c.id_clase) AS total_modulos
+             FROM Clase c
+             LEFT JOIN Mentor m ON c.id_mentor = m.id_mentor
+             ORDER BY c.id_clase DESC`
+        );
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error al listar cursos:', error);
+        res.status(500).json({ error: 'Fallo al cargar los cursos.' });
+    }
+});
+
+// Eliminar un curso (clase) completo
+app.delete('/api/admin/cursos/:idClase', async (req, res) => {
+    try {
+        if (!(await exigirAdmin(req, res))) return;
+
+        const { idClase } = req.params;
+
+        await pool.query('BEGIN');
+        // Primero las inscripciones (la FK no tiene ON DELETE CASCADE)
+        await pool.query('DELETE FROM Clase_Estudiante WHERE id_clase = $1', [idClase]);
+        // Temas/lecciones/quizzes se eliminan en cascada desde Tema
+        const result = await pool.query('DELETE FROM Clase WHERE id_clase = $1 RETURNING nombre', [idClase]);
+        if (result.rowCount === 0) {
+            await pool.query('ROLLBACK');
+            return res.status(404).json({ error: 'El curso no existe.' });
+        }
+        await pool.query('COMMIT');
+
+        res.status(200).json({ mensaje: `Curso "${result.rows[0].nombre}" eliminado.` });
+    } catch (error) {
+        await pool.query('ROLLBACK');
+        console.error('Error al eliminar curso:', error);
+        res.status(500).json({ error: 'Fallo al eliminar el curso.' });
+    }
+});
+
 app.get('/api/config', (req, res) => {
     // Es seguro enviar la Publishable Key, pero NUNCA envíes la Secret Key aquí.
     res.json({ 
