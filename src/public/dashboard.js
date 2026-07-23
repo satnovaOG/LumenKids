@@ -114,11 +114,26 @@ function configurarPanelEstudiante() {
     cargarPanelEstudiante();
     cargarRetos();
     cargarClasesEstudiante();
+
+    document.getElementById('btn-copiar-codigo').addEventListener('click', async () => {
+        const codigo = document.getElementById('codigo-vinculacion-valor').textContent.trim();
+        if (!codigo || codigo === '—') return;
+        try {
+            await navigator.clipboard.writeText(codigo);
+            mostrarMensaje('student-message', `Código ${codigo} copiado al portapapeles.`);
+        } catch {
+            mostrarMensaje('student-message', 'No se pudo copiar. Selecciona el código manualmente.', true);
+        }
+    });
 }
 
 async function cargarPanelEstudiante() {
     try {
         const panel = await apiFetch('/api/panel-estudiante');
+
+        // Código de vinculación familiar (para compartir con padres/acudientes)
+        document.getElementById('codigo-vinculacion-valor').textContent =
+            panel.perfil?.codigo_vinculacion || '—';
 
         // Estadísticas de desempeño
         document.getElementById('stats-estudiante').innerHTML = `

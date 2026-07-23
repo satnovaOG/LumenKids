@@ -22,6 +22,17 @@
         <!-- PANEL INTEGRAL DEL ESTUDIANTE (RF5) + GAMIFICACIÓN (RF2)      -->
         <!-- ============================================================= -->
         <main id="student-panel" class="panel-section hidden">
+            <div class="form-card" id="codigo-vinculacion-card" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <div>
+                    <h3 style="margin: 0 0 4px 0; font-size: 1rem;">Código de vinculación familiar</h3>
+                    <p style="margin: 0; color: var(--texto-suave); font-size: 0.85rem;">Compártelo con tus padres o acudientes para que puedan vincular su cuenta.</p>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span id="codigo-vinculacion-valor" class="chip" style="font-size: 1.1rem; letter-spacing: 2px; padding: 8px 16px;">—</span>
+                    <button type="button" id="btn-copiar-codigo" class="custom-button secundario" style="width: auto; padding: 8px 14px; font-size: 0.85rem;">Copiar</button>
+                </div>
+            </div>
+
             <div class="stats-grid" id="stats-estudiante"></div>
 
             <div class="form-card">
