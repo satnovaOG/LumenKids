@@ -596,6 +596,775 @@ app.post('/api/crear-curso-dinamico', async (req, res) => {
     }
 });
 
+// =========================================================================
+// GAMIFICACIÓN Y RETOS (RF2)
+// =========================================================================
+
+// Insignias del ecosistema: se calculan automáticamente a partir del desempeño
+function calcularInsignias(stats) {
+    return [
+        { icono: '⚡', titulo: 'Primer impulso', descripcion: 'Completa tu primer reto.', obtenida: stats.retosCompletados >= 1 },
+        { icono: '🧠', titulo: 'Constructor lógico', descripcion: 'Completa 3 retos o más.', obtenida: stats.retosCompletados >= 3 },
+        { icono: '🏅', titulo: 'Campeón de olimpiada', descripcion: 'Responde correctamente un reto de olimpiada.', obtenida: stats.olimpiadasGanadas >= 1 },
+        { icono: '🎯', titulo: 'Precisión total', descripcion: 'Logra 5 respuestas correctas.', obtenida: stats.respuestasCorrectas >= 5 },
+        { icono: '🚀', titulo: 'Explorador de rutas', descripcion: 'Ten una ruta de aprendizaje activa.', obtenida: stats.rutasActivas >= 1 },
+        { icono: '🧩', titulo: 'Arquitecto del conocimiento', descripcion: 'Supera los 300 puntos.', obtenida: stats.puntosTotales >= 300 }
+    ];
+}
+
+// Crear un reto, olimpiada o juego matemático (solo Mentores y Administradores)
+app.post('/api/retos', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+    if (!idUsuario) return res.status(401).json({ error: 'No autorizado' });
+
+    const { titulo, descripcion, tipo, area, puntos, pregunta, opciones, respuestaCorrecta } = req.body;
+
+    if (!titulo || !pregunta || !respuestaCorrecta) {
+        return res.status(400).json({ error: 'El título, la pregunta y la respuesta correcta son obligatorios.' });
+    }
+
+    try {
+        const resPrivilegios = await pool.query(
+            'SELECT id_mentor FROM Mentor WHERE id_mentor = $1 UNION SELECT id_admin FROM Administrador WHERE id_admin = $1',
+            [idUsuario]
+        );
+        if (resPrivilegios.rows.length === 0) {
+            return res.status(403).json({ error: 'Acceso denegado. Solo el personal docente puede crear retos.' });
+        }
+
+        const nuevoReto = await pool.query(
+            `INSERT INTO Reto (titulo, descripcion, tipo, area, puntos, pregunta, opciones, respuesta_correcta, creado_por)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id_reto`,
+            [titulo, descripcion || '', tipo || 'semanal', area || 'General', puntos || 50, pregunta, opciones || '', respuestaCorrecta.trim(), idUsuario]
+        );
+
+        res.status(200).json({ mensaje: 'Reto publicado exitosamente.', id_reto: nuevoReto.rows[0].id_reto });
+    } catch (error) {
+        console.error('Error al crear el reto:', error);
+        res.status(500).json({ error: 'Fallo interno al crear el reto.' });
+    }
+});
+
+// Listar los retos activos, indicando si el estudiante ya los resolvió
+app.get('/api/retos', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+    if (!idUsuario) return res.status(401).json({ error: 'No autorizado' });
+
+    try {
+        const result = await pool.query(
+            `SELECT r.id_reto, r.titulo, r.descripcion, r.tipo, r.area, r.puntos, r.pregunta, r.opciones,
+                    i.es_correcta, i.puntos_obtenidos,
+                    (i.id_intento IS NOT NULL) AS respondido
+             FROM Reto r
+             LEFT JOIN Reto_Intento i ON r.id_reto = i.id_reto AND i.id_estudiante = $1
+             WHERE r.activo = TRUE
+             ORDER BY r.fecha_creacion DESC`,
+            [idUsuario]
+        );
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error al obtener retos:', error);
+        res.status(500).json({ error: 'Fallo al cargar los retos.' });
+    }
+});
+
+// Responder un reto: validación automática de la respuesta y asignación inmediata del puntaje
+app.post('/api/retos/:idReto/responder', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+    if (!idUsuario) return res.status(401).json({ error: 'No autorizado' });
+
+    const { idReto } = req.params;
+    const { respuesta } = req.body;
+
+    if (respuesta === undefined || respuesta === null || String(respuesta).trim() === '') {
+        return res.status(400).json({ error: 'Debes escribir o seleccionar una respuesta.' });
+    }
+
+    try {
+        const resReto = await pool.query('SELECT respuesta_correcta, puntos FROM Reto WHERE id_reto = $1 AND activo = TRUE', [idReto]);
+        if (resReto.rows.length === 0) {
+            return res.status(404).json({ error: 'El reto no existe o ya no está disponible.' });
+        }
+
+        const reto = resReto.rows[0];
+        const esCorrecta = String(respuesta).trim().toLowerCase() === reto.respuesta_correcta.trim().toLowerCase();
+        const puntosObtenidos = esCorrecta ? reto.puntos : 0;
+
+        const intento = await pool.query(
+            `INSERT INTO Reto_Intento (id_reto, id_estudiante, respuesta, es_correcta, puntos_obtenidos)
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (id_reto, id_estudiante) DO NOTHING
+             RETURNING id_intento`,
+            [idReto, idUsuario, String(respuesta).trim(), esCorrecta, puntosObtenidos]
+        );
+
+        if (intento.rowCount === 0) {
+            return res.status(400).json({ error: 'Ya habías respondido este reto anteriormente.' });
+        }
+
+        // Registramos la actividad para las alertas de desmotivación del panel de padres
+        await pool.query('UPDATE Estudiante SET ultima_actividad = NOW() WHERE id_estudiante = $1', [idUsuario]);
+
+        res.status(200).json({
+            correcta: esCorrecta,
+            puntos: puntosObtenidos,
+            mensaje: esCorrecta
+                ? `¡Respuesta correcta! Ganaste ${puntosObtenidos} puntos.`
+                : 'Respuesta incorrecta. ¡Sigue practicando para el próximo reto!'
+        });
+    } catch (error) {
+        console.error('Error al responder el reto:', error);
+        res.status(500).json({ error: 'Fallo al procesar tu respuesta.' });
+    }
+});
+
+// =========================================================================
+// PANEL INTEGRAL DEL ESTUDIANTE (RF5)
+// =========================================================================
+
+// Consulta reutilizable: estadísticas completas de un estudiante
+async function obtenerEstadisticasEstudiante(idEstudiante) {
+    const resEstudiante = await pool.query(
+        'SELECT nombre, nivel, codigo_vinculacion, ultima_actividad FROM Estudiante WHERE id_estudiante = $1',
+        [idEstudiante]
+    );
+    if (resEstudiante.rows.length === 0) return null;
+
+    const resIntentos = await pool.query(
+        `SELECT COUNT(*)::int AS total,
+                COUNT(*) FILTER (WHERE es_correcta)::int AS correctas,
+                COALESCE(SUM(puntos_obtenidos), 0)::int AS puntos,
+                COUNT(*) FILTER (WHERE es_correcta AND id_reto IN (SELECT id_reto FROM Reto WHERE tipo = 'olimpiada'))::int AS olimpiadas
+         FROM Reto_Intento WHERE id_estudiante = $1`,
+        [idEstudiante]
+    );
+
+    const resRutas = await pool.query(
+        `SELECT r.id_ruta, r.nombre_curso, r.area, r.url_coursera, er.progreso_porcentaje
+         FROM Ruta_Aprendizaje r JOIN Estudiante_Ruta er ON r.id_ruta = er.id_ruta
+         WHERE er.id_estudiante = $1`,
+        [idEstudiante]
+    );
+
+    const resRetosPendientes = await pool.query(
+        `SELECT COUNT(*)::int AS pendientes FROM Reto r
+         WHERE r.activo = TRUE AND NOT EXISTS (
+            SELECT 1 FROM Reto_Intento i WHERE i.id_reto = r.id_reto AND i.id_estudiante = $1
+         )`,
+        [idEstudiante]
+    );
+
+    const resOrientaciones = await pool.query(
+        `SELECT s.mensaje, s.fecha, m.nombre AS nombre_mentor
+         FROM Seguimiento s LEFT JOIN Mentor m ON s.id_mentor = m.id_mentor
+         WHERE s.id_estudiante = $1 AND s.tipo = 'orientacion'
+         ORDER BY s.fecha DESC LIMIT 5`,
+        [idEstudiante]
+    );
+
+    const intentos = resIntentos.rows[0];
+    const stats = {
+        retosCompletados: intentos.total,
+        respuestasCorrectas: intentos.correctas,
+        olimpiadasGanadas: intentos.olimpiadas,
+        puntosTotales: intentos.puntos,
+        rutasActivas: resRutas.rows.length
+    };
+
+    const promedioProgreso = resRutas.rows.length
+        ? Math.round(resRutas.rows.reduce((suma, ruta) => suma + ruta.progreso_porcentaje, 0) / resRutas.rows.length)
+        : 0;
+
+    return {
+        perfil: resEstudiante.rows[0],
+        puntos: stats.puntosTotales,
+        nivel: Math.floor(stats.puntosTotales / 100) + 1,
+        progresoNivel: stats.puntosTotales % 100,
+        retosCompletados: stats.retosCompletados,
+        respuestasCorrectas: stats.respuestasCorrectas,
+        retosPendientes: resRetosPendientes.rows[0].pendientes,
+        promedioProgreso: promedioProgreso,
+        rutas: resRutas.rows,
+        insignias: calcularInsignias(stats),
+        orientaciones: resOrientaciones.rows
+    };
+}
+
+// Recomendaciones personalizadas según el desempeño reciente del estudiante
+function generarRecomendaciones(panel) {
+    const recomendaciones = [];
+    if (panel.retosPendientes > 0) {
+        recomendaciones.push(`Tienes ${panel.retosPendientes} reto(s) pendiente(s). ¡Resuélvelos para ganar puntos!`);
+    }
+    const rutaRezagada = panel.rutas.find(ruta => ruta.progreso_porcentaje < 50);
+    if (rutaRezagada) {
+        recomendaciones.push(`Retoma la ruta "${rutaRezagada.nombre_curso}" (${rutaRezagada.area}), vas en ${rutaRezagada.progreso_porcentaje}%.`);
+    }
+    if (panel.retosCompletados > 0 && panel.respuestasCorrectas / panel.retosCompletados < 0.5) {
+        recomendaciones.push('Repasa las lecciones de tus rutas antes de intentar el próximo reto: la precisión es clave.');
+    }
+    if (panel.rutas.length === 0) {
+        recomendaciones.push('Aún no tienes rutas de aprendizaje. Pídele a tu mentor que te asigne una.');
+    }
+    if (recomendaciones.length === 0) {
+        recomendaciones.push('¡Excelente trabajo! Mantén tu ritmo y busca el siguiente nivel.');
+    }
+    return recomendaciones;
+}
+
+// Panel personalizado: progreso, rutas, logros, retos, estadísticas y recomendaciones
+app.get('/api/panel-estudiante', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+    if (!idUsuario) return res.status(401).json({ error: 'No autorizado. Debes iniciar sesión.' });
+
+    try {
+        const panel = await obtenerEstadisticasEstudiante(idUsuario);
+        if (!panel) return res.status(404).json({ error: 'No se encontró tu perfil de estudiante.' });
+
+        panel.recomendaciones = generarRecomendaciones(panel);
+
+        // Actualizamos el registro de actividad del estudiante
+        await pool.query('UPDATE Estudiante SET ultima_actividad = NOW() WHERE id_estudiante = $1', [idUsuario]);
+
+        res.status(200).json(panel);
+    } catch (error) {
+        console.error('Error al cargar el panel del estudiante:', error);
+        res.status(500).json({ error: 'La información no está disponible temporalmente. Intenta de nuevo.' });
+    }
+});
+
+// Actualizar el progreso de una ruta de aprendizaje del estudiante
+app.post('/api/rutas/:idRuta/progreso', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+    if (!idUsuario) return res.status(401).json({ error: 'No autorizado' });
+
+    const { idRuta } = req.params;
+    const progreso = Math.max(0, Math.min(100, parseInt(req.body.progreso, 10) || 0));
+
+    try {
+        const result = await pool.query(
+            'UPDATE Estudiante_Ruta SET progreso_porcentaje = $1 WHERE id_estudiante = $2 AND id_ruta = $3',
+            [progreso, idUsuario, idRuta]
+        );
+        if (result.rowCount === 0) return res.status(404).json({ error: 'No tienes asignada esa ruta.' });
+
+        await pool.query('UPDATE Estudiante SET ultima_actividad = NOW() WHERE id_estudiante = $1', [idUsuario]);
+        res.status(200).json({ mensaje: 'Progreso actualizado.', progreso });
+    } catch (error) {
+        console.error('Error al actualizar progreso:', error);
+        res.status(500).json({ error: 'Fallo al guardar el progreso.' });
+    }
+});
+
+// =========================================================================
+// PANEL PARA PADRES (RF3)
+// =========================================================================
+
+// Vincular un estudiante después del registro (manejo de cuenta no vinculada)
+app.post('/api/vincular-estudiante', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+    if (!idUsuario) return res.status(401).json({ error: 'No autorizado' });
+
+    const codigoLimpio = (req.body.codigo || '').trim().toUpperCase();
+    if (!codigoLimpio) return res.status(400).json({ error: 'Debes ingresar el código de vinculación.' });
+
+    try {
+        const resPadre = await pool.query('SELECT id_padre FROM Padre WHERE id_padre = $1', [idUsuario]);
+        if (resPadre.rows.length === 0) {
+            return res.status(403).json({ error: 'Solo las cuentas de padre pueden vincular estudiantes.' });
+        }
+
+        const result = await pool.query(
+            'UPDATE Estudiante SET id_padre = $1 WHERE codigo_vinculacion = $2 RETURNING nombre',
+            [idUsuario, codigoLimpio]
+        );
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'El código ingresado no corresponde a ningún estudiante.' });
+        }
+
+        res.status(200).json({ mensaje: `Vinculación exitosa con ${result.rows[0].nombre}.` });
+    } catch (error) {
+        console.error('Error al vincular estudiante:', error);
+        res.status(500).json({ error: 'Fallo al procesar la vinculación.' });
+    }
+});
+
+// Panel del padre: progreso, fortalezas y alertas de desmotivación de sus hijos
+app.get('/api/panel-padre', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+    if (!idUsuario) return res.status(401).json({ error: 'No autorizado' });
+
+    try {
+        const resHijos = await pool.query('SELECT id_estudiante FROM Estudiante WHERE id_padre = $1', [idUsuario]);
+
+        const hijos = [];
+        for (const hijo of resHijos.rows) {
+            const panel = await obtenerEstadisticasEstudiante(hijo.id_estudiante);
+            if (!panel) continue;
+
+            // Alerta de desmotivación: más de 7 días sin actividad registrada
+            const diasInactivo = panel.perfil.ultima_actividad
+                ? Math.floor((Date.now() - new Date(panel.perfil.ultima_actividad).getTime()) / (1000 * 60 * 60 * 24))
+                : null;
+
+            const alertas = [];
+            if (diasInactivo === null || diasInactivo > 7) {
+                alertas.push('Posible desmotivación: lleva más de una semana sin actividad en la plataforma.');
+            }
+            if (panel.retosCompletados >= 3 && panel.respuestasCorrectas / panel.retosCompletados < 0.4) {
+                alertas.push('Está intentando los retos pero con baja precisión. Podría necesitar acompañamiento.');
+            }
+
+            // Fortalezas explicadas en lenguaje sencillo
+            const fortalezas = [];
+            if (panel.respuestasCorrectas >= 3) fortalezas.push('Resuelve problemas matemáticos con buena precisión.');
+            if (panel.promedioProgreso >= 50) fortalezas.push('Avanza de forma constante en sus rutas de aprendizaje.');
+            if (panel.insignias.filter(i => i.obtenida).length >= 2) fortalezas.push('Se motiva con los logros y colecciona insignias.');
+            if (fortalezas.length === 0) fortalezas.push('Está comenzando su camino: anímalo a completar su primer reto.');
+
+            hijos.push({
+                id_estudiante: hijo.id_estudiante,
+                nombre: panel.perfil.nombre,
+                nivel: panel.nivel,
+                puntos: panel.puntos,
+                retosCompletados: panel.retosCompletados,
+                promedioProgreso: panel.promedioProgreso,
+                rutas: panel.rutas,
+                insignias: panel.insignias.filter(i => i.obtenida),
+                diasInactivo: diasInactivo,
+                alertas: alertas,
+                fortalezas: fortalezas,
+                orientaciones: panel.orientaciones
+            });
+        }
+
+        res.status(200).json({ hijos });
+    } catch (error) {
+        console.error('Error al cargar el panel del padre:', error);
+        res.status(500).json({ error: 'Fallo al cargar la información de seguimiento.' });
+    }
+});
+
+// =========================================================================
+// PANEL DE MENTORÍA Y GESTIÓN DOCENTE (RF4)
+// =========================================================================
+
+// Listar los estudiantes asignados al mentor (a través de sus clases) con sus estadísticas
+app.get('/api/estudiantes-mentor', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+    if (!idUsuario) return res.status(401).json({ error: 'No autorizado' });
+
+    try {
+        const resPrivilegios = await pool.query(
+            'SELECT id_mentor FROM Mentor WHERE id_mentor = $1 UNION SELECT id_admin FROM Administrador WHERE id_admin = $1',
+            [idUsuario]
+        );
+        if (resPrivilegios.rows.length === 0) {
+            return res.status(403).json({ error: 'Acceso denegado. Solo para personal docente.' });
+        }
+
+        const resEstudiantes = await pool.query(
+            `SELECT DISTINCT e.id_estudiante, e.nombre, e.nivel, e.ultima_actividad
+             FROM Estudiante e
+             JOIN Clase_Estudiante ce ON e.id_estudiante = ce.id_estudiante
+             JOIN Clase c ON ce.id_clase = c.id_clase
+             WHERE c.id_mentor = $1`,
+            [idUsuario]
+        );
+
+        const estudiantes = [];
+        for (const est of resEstudiantes.rows) {
+            const resPuntos = await pool.query(
+                `SELECT COALESCE(SUM(puntos_obtenidos), 0)::int AS puntos,
+                        COUNT(*)::int AS retos,
+                        COUNT(*) FILTER (WHERE es_correcta)::int AS correctas
+                 FROM Reto_Intento WHERE id_estudiante = $1`,
+                [est.id_estudiante]
+            );
+            estudiantes.push({ ...est, ...resPuntos.rows[0] });
+        }
+
+        res.status(200).json(estudiantes);
+    } catch (error) {
+        console.error('Error al obtener estudiantes del mentor:', error);
+        res.status(500).json({ error: 'Fallo al cargar los estudiantes.' });
+    }
+});
+
+// Registrar una orientación personalizada o una nota privada de seguimiento
+app.post('/api/seguimiento', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+    if (!idUsuario) return res.status(401).json({ error: 'No autorizado' });
+
+    const { idEstudiante, tipo, mensaje } = req.body;
+
+    // Manejo de situación anormal: orientación vacía o sin destinatario
+    if (!idEstudiante || !mensaje || !mensaje.trim()) {
+        return res.status(400).json({ error: 'Los campos de comunicación son obligatorios: selecciona un estudiante y escribe un mensaje.' });
+    }
+
+    try {
+        const resMentor = await pool.query('SELECT id_mentor FROM Mentor WHERE id_mentor = $1', [idUsuario]);
+        const resAdmin = await pool.query('SELECT id_admin FROM Administrador WHERE id_admin = $1', [idUsuario]);
+        if (resMentor.rows.length === 0 && resAdmin.rows.length === 0) {
+            return res.status(403).json({ error: 'Acceso denegado. Solo para personal docente.' });
+        }
+
+        // Manejo de situación anormal: estudiante no asignado al mentor (los admins no tienen restricción)
+        if (resAdmin.rows.length === 0) {
+            const resAsignado = await pool.query(
+                `SELECT 1 FROM Clase_Estudiante ce
+                 JOIN Clase c ON ce.id_clase = c.id_clase
+                 WHERE c.id_mentor = $1 AND ce.id_estudiante = $2`,
+                [idUsuario, idEstudiante]
+            );
+            if (resAsignado.rows.length === 0) {
+                return res.status(403).json({ error: 'No tienes permisos para registrar información sobre ese estudiante: no está asignado a tus clases.' });
+            }
+        }
+
+        await pool.query(
+            'INSERT INTO Seguimiento (id_mentor, id_estudiante, tipo, mensaje) VALUES ($1, $2, $3, $4)',
+            [idUsuario, idEstudiante, tipo === 'nota' ? 'nota' : 'orientacion', mensaje.trim()]
+        );
+
+        res.status(200).json({ mensaje: tipo === 'nota' ? 'Nota de seguimiento registrada.' : 'Orientación enviada al estudiante.' });
+    } catch (error) {
+        console.error('Error al registrar seguimiento:', error);
+        res.status(500).json({ error: 'Fallo al guardar el seguimiento.' });
+    }
+});
+
+// Consultar el historial de seguimiento de un estudiante (restringido al personal docente)
+app.get('/api/seguimiento/:idEstudiante', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+    if (!idUsuario) return res.status(401).json({ error: 'No autorizado' });
+
+    const { idEstudiante } = req.params;
+
+    try {
+        const resPrivilegios = await pool.query(
+            'SELECT id_mentor FROM Mentor WHERE id_mentor = $1 UNION SELECT id_admin FROM Administrador WHERE id_admin = $1',
+            [idUsuario]
+        );
+        if (resPrivilegios.rows.length === 0) {
+            return res.status(403).json({ error: 'Acceso denegado. Los reportes pedagógicos son exclusivos del personal docente.' });
+        }
+
+        const result = await pool.query(
+            `SELECT s.tipo, s.mensaje, s.fecha, m.nombre AS nombre_mentor
+             FROM Seguimiento s LEFT JOIN Mentor m ON s.id_mentor = m.id_mentor
+             WHERE s.id_estudiante = $1 ORDER BY s.fecha DESC`,
+            [idEstudiante]
+        );
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error al consultar seguimiento:', error);
+        res.status(500).json({ error: 'Fallo al cargar el historial.' });
+    }
+});
+
+// =========================================================================
+// CURSOS DEL DOCENTE VISTOS POR EL ESTUDIANTE
+// =========================================================================
+
+// Listar las clases en las que está inscrito el estudiante
+app.get('/api/mis-clases', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+    if (!idUsuario) return res.status(401).json({ error: 'No autorizado' });
+
+    try {
+        const result = await pool.query(
+            `SELECT c.id_clase, c.nombre, m.nombre AS nombre_mentor,
+                    (SELECT COUNT(*)::int FROM Tema t WHERE t.id_clase = c.id_clase) AS total_modulos
+             FROM Clase c
+             JOIN Clase_Estudiante ce ON c.id_clase = ce.id_clase
+             LEFT JOIN Mentor m ON c.id_mentor = m.id_mentor
+             WHERE ce.id_estudiante = $1
+             ORDER BY c.id_clase`,
+            [idUsuario]
+        );
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error al obtener las clases del estudiante:', error);
+        res.status(500).json({ error: 'Fallo al cargar tus cursos.' });
+    }
+});
+
+// Contenido completo de una clase: módulos, lecciones y quizzes.
+// Las opciones se envían SIN el campo es_correcta: la calificación es del servidor.
+app.get('/api/clases/:idClase/contenido', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+    if (!idUsuario) return res.status(401).json({ error: 'No autorizado' });
+
+    const { idClase } = req.params;
+
+    try {
+        // El estudiante debe estar inscrito, o el usuario ser el mentor dueño / un admin
+        const resAcceso = await pool.query(
+            `SELECT 1 FROM Clase_Estudiante WHERE id_clase = $1 AND id_estudiante = $2
+             UNION SELECT 1 FROM Clase WHERE id_clase = $1 AND id_mentor = $2
+             UNION SELECT 1 FROM Administrador WHERE id_admin = $2`,
+            [idClase, idUsuario]
+        );
+        if (resAcceso.rows.length === 0) {
+            return res.status(403).json({ error: 'No estás inscrito en este curso.' });
+        }
+
+        const resClase = await pool.query(
+            `SELECT c.nombre, m.nombre AS nombre_mentor
+             FROM Clase c LEFT JOIN Mentor m ON c.id_mentor = m.id_mentor
+             WHERE c.id_clase = $1`,
+            [idClase]
+        );
+        if (resClase.rows.length === 0) return res.status(404).json({ error: 'El curso no existe.' });
+
+        const resTemas = await pool.query(
+            'SELECT id_tema, nombre_tema FROM Tema WHERE id_clase = $1 ORDER BY id_tema',
+            [idClase]
+        );
+
+        const temas = [];
+        for (const tema of resTemas.rows) {
+            const resLecciones = await pool.query(
+                'SELECT titulo, contenido FROM Leccion WHERE id_tema = $1 ORDER BY id_leccion',
+                [tema.id_tema]
+            );
+
+            const resEvaluaciones = await pool.query(
+                'SELECT id_evaluacion, titulo FROM Evaluacion WHERE id_tema = $1 ORDER BY id_evaluacion',
+                [tema.id_tema]
+            );
+
+            const evaluaciones = [];
+            for (const evaluacion of resEvaluaciones.rows) {
+                const resPreguntas = await pool.query(
+                    'SELECT id_pregunta, enunciado, tipo FROM Pregunta WHERE id_evaluacion = $1 ORDER BY id_pregunta',
+                    [evaluacion.id_evaluacion]
+                );
+
+                const preguntas = [];
+                for (const pregunta of resPreguntas.rows) {
+                    const resOpciones = await pool.query(
+                        'SELECT id_opcion, texto_opcion FROM Opcion WHERE id_pregunta = $1 ORDER BY id_opcion',
+                        [pregunta.id_pregunta]
+                    );
+                    preguntas.push({ ...pregunta, opciones: resOpciones.rows });
+                }
+
+                evaluaciones.push({ ...evaluacion, preguntas });
+            }
+
+            temas.push({
+                id_tema: tema.id_tema,
+                nombre_tema: tema.nombre_tema,
+                lecciones: resLecciones.rows,
+                evaluaciones: evaluaciones
+            });
+        }
+
+        res.status(200).json({ ...resClase.rows[0], temas });
+    } catch (error) {
+        console.error('Error al cargar el contenido del curso:', error);
+        res.status(500).json({ error: 'Fallo al cargar el contenido del curso.' });
+    }
+});
+
+// Calificación automática de un quiz del curso.
+// Recibe { respuestas: { idPregunta: [idOpcion, ...] } } y devuelve el puntaje.
+app.post('/api/evaluaciones/:idEvaluacion/responder', async (req, res) => {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+    if (!idUsuario) return res.status(401).json({ error: 'No autorizado' });
+
+    const { idEvaluacion } = req.params;
+    const respuestas = req.body.respuestas || {};
+
+    try {
+        // Verificamos que el estudiante esté inscrito en la clase dueña de esta evaluación
+        const resAcceso = await pool.query(
+            `SELECT 1 FROM Evaluacion e
+             JOIN Tema t ON e.id_tema = t.id_tema
+             JOIN Clase_Estudiante ce ON t.id_clase = ce.id_clase
+             WHERE e.id_evaluacion = $1 AND ce.id_estudiante = $2`,
+            [idEvaluacion, idUsuario]
+        );
+        if (resAcceso.rows.length === 0) {
+            return res.status(403).json({ error: 'No estás inscrito en el curso de esta evaluación.' });
+        }
+
+        const resPreguntas = await pool.query(
+            'SELECT id_pregunta FROM Pregunta WHERE id_evaluacion = $1',
+            [idEvaluacion]
+        );
+
+        let correctas = 0;
+        const detalle = [];
+
+        for (const pregunta of resPreguntas.rows) {
+            const resCorrectas = await pool.query(
+                'SELECT id_opcion FROM Opcion WHERE id_pregunta = $1 AND es_correcta = TRUE',
+                [pregunta.id_pregunta]
+            );
+            const idsCorrectos = resCorrectas.rows.map(o => o.id_opcion).sort();
+            const idsMarcados = (respuestas[pregunta.id_pregunta] || []).map(Number).sort();
+
+            const acierto = idsCorrectos.length === idsMarcados.length &&
+                idsCorrectos.every((id, i) => id === idsMarcados[i]);
+
+            if (acierto) correctas++;
+            detalle.push({ id_pregunta: pregunta.id_pregunta, correcta: acierto });
+        }
+
+        await pool.query('UPDATE Estudiante SET ultima_actividad = NOW() WHERE id_estudiante = $1', [idUsuario]);
+
+        res.status(200).json({
+            total: resPreguntas.rows.length,
+            correctas: correctas,
+            detalle: detalle,
+            mensaje: `Obtuviste ${correctas} de ${resPreguntas.rows.length} respuestas correctas.`
+        });
+    } catch (error) {
+        console.error('Error al calificar la evaluación:', error);
+        res.status(500).json({ error: 'Fallo al calificar la evaluación.' });
+    }
+});
+
+// =========================================================================
+// PANEL DE ADMINISTRACIÓN
+// =========================================================================
+
+async function exigirAdmin(req, res) {
+    const auth = getAuth(req);
+    const idUsuario = auth.userId;
+    if (!idUsuario) {
+        res.status(401).json({ error: 'No autorizado' });
+        return null;
+    }
+    const resAdmin = await pool.query('SELECT id_admin FROM Administrador WHERE id_admin = $1', [idUsuario]);
+    if (resAdmin.rows.length === 0) {
+        res.status(403).json({ error: 'Acceso denegado. Solo administradores.' });
+        return null;
+    }
+    return idUsuario;
+}
+
+// Listar todas las cuentas del sistema (estudiantes, mentores y padres)
+app.get('/api/admin/cuentas', async (req, res) => {
+    try {
+        if (!(await exigirAdmin(req, res))) return;
+
+        const [estudiantes, mentores, padres] = await Promise.all([
+            pool.query(`SELECT id_estudiante, nombre, edad, nivel, codigo_vinculacion, id_padre, ultima_actividad
+                        FROM Estudiante ORDER BY nombre`),
+            pool.query(`SELECT id_mentor, nombre, correo, id_admin FROM Mentor ORDER BY nombre`),
+            pool.query(`SELECT id_padre, nombre, correo FROM Padre ORDER BY nombre`)
+        ]);
+
+        res.status(200).json({
+            estudiantes: estudiantes.rows,
+            mentores: mentores.rows,
+            padres: padres.rows
+        });
+    } catch (error) {
+        console.error('Error al listar cuentas:', error);
+        res.status(500).json({ error: 'Fallo al cargar las cuentas.' });
+    }
+});
+
+// Listar todas las rutas de aprendizaje
+app.get('/api/admin/rutas', async (req, res) => {
+    try {
+        if (!(await exigirAdmin(req, res))) return;
+
+        const result = await pool.query(
+            `SELECT r.id_ruta, r.nombre_curso, r.area, r.url_coursera, m.nombre AS nombre_mentor,
+                    (SELECT COUNT(*)::int FROM Estudiante_Ruta er WHERE er.id_ruta = r.id_ruta) AS estudiantes_asignados
+             FROM Ruta_Aprendizaje r
+             LEFT JOIN Mentor m ON r.id_mentor = m.id_mentor
+             ORDER BY r.id_ruta DESC`
+        );
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error al listar rutas:', error);
+        res.status(500).json({ error: 'Fallo al cargar las rutas.' });
+    }
+});
+
+// Eliminar una ruta de aprendizaje
+app.delete('/api/admin/rutas/:idRuta', async (req, res) => {
+    try {
+        if (!(await exigirAdmin(req, res))) return;
+
+        const { idRuta } = req.params;
+        const result = await pool.query('DELETE FROM Ruta_Aprendizaje WHERE id_ruta = $1 RETURNING nombre_curso', [idRuta]);
+        if (result.rowCount === 0) return res.status(404).json({ error: 'La ruta no existe.' });
+
+        res.status(200).json({ mensaje: `Ruta "${result.rows[0].nombre_curso}" eliminada.` });
+    } catch (error) {
+        console.error('Error al eliminar ruta:', error);
+        res.status(500).json({ error: 'Fallo al eliminar la ruta.' });
+    }
+});
+
+// Listar todos los cursos (clases) del sistema
+app.get('/api/admin/cursos', async (req, res) => {
+    try {
+        if (!(await exigirAdmin(req, res))) return;
+
+        const result = await pool.query(
+            `SELECT c.id_clase, c.nombre, m.nombre AS nombre_mentor,
+                    (SELECT COUNT(*)::int FROM Clase_Estudiante ce WHERE ce.id_clase = c.id_clase) AS estudiantes_inscritos,
+                    (SELECT COUNT(*)::int FROM Tema t WHERE t.id_clase = c.id_clase) AS total_modulos
+             FROM Clase c
+             LEFT JOIN Mentor m ON c.id_mentor = m.id_mentor
+             ORDER BY c.id_clase DESC`
+        );
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error al listar cursos:', error);
+        res.status(500).json({ error: 'Fallo al cargar los cursos.' });
+    }
+});
+
+// Eliminar un curso (clase) completo
+app.delete('/api/admin/cursos/:idClase', async (req, res) => {
+    try {
+        if (!(await exigirAdmin(req, res))) return;
+
+        const { idClase } = req.params;
+
+        await pool.query('BEGIN');
+        // Primero las inscripciones (la FK no tiene ON DELETE CASCADE)
+        await pool.query('DELETE FROM Clase_Estudiante WHERE id_clase = $1', [idClase]);
+        // Temas/lecciones/quizzes se eliminan en cascada desde Tema
+        const result = await pool.query('DELETE FROM Clase WHERE id_clase = $1 RETURNING nombre', [idClase]);
+        if (result.rowCount === 0) {
+            await pool.query('ROLLBACK');
+            return res.status(404).json({ error: 'El curso no existe.' });
+        }
+        await pool.query('COMMIT');
+
+        res.status(200).json({ mensaje: `Curso "${result.rows[0].nombre}" eliminado.` });
+    } catch (error) {
+        await pool.query('ROLLBACK');
+        console.error('Error al eliminar curso:', error);
+        res.status(500).json({ error: 'Fallo al eliminar el curso.' });
+    }
+});
+
 app.get('/api/config', (req, res) => {
     // Es seguro enviar la Publishable Key, pero NUNCA envíes la Secret Key aquí.
     res.json({ 

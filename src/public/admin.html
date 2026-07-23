@@ -5,97 +5,89 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LumenKids - Panel de Administración</title>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="login-wrapper">
-        <header class="login-header">
-            <h1>Panel Administrativo</h1>
-            <p>Gestión de Docentes (Mentores)</p>
+    <div class="dashboard-wrapper">
+        <header class="dashboard-header">
+            <div>
+                <h1>Panel Administrativo</h1>
+                <p style="color: var(--texto-suave); font-size: 0.9rem;">Gestión de cuentas, rutas y cursos de LumenKids</p>
+            </div>
             <div id="user-button"></div>
         </header>
 
-        <main class="login-main">
-            <!-- Formulario de creación de docentes -->
-            <form id="form-crear-mentor" class="controls-container">
-                <label for="nombre-mentor">Nombre Completo del Docente:</label>
-                <input type="text" id="nombre-mentor" class="custom-input" placeholder="Ej: Ana María López" required>
+        <nav class="tab-nav" id="tabs-admin">
+            <button data-tab="tab-mentores" class="activa">👨‍🏫 Crear Mentor</button>
+            <button data-tab="tab-cuentas">👥 Cuentas</button>
+            <button data-tab="tab-rutas">🔗 Rutas</button>
+            <button data-tab="tab-cursos">📚 Cursos</button>
+        </nav>
 
-                <label for="correo-mentor">Correo Electrónico:</label>
-                <input type="email" id="correo-mentor" class="custom-input" placeholder="Ej: ana.lopez@ejemplo.com" required>
+        <!-- Crear mentor -->
+        <section id="tab-mentores" class="tab-panel">
+            <div class="form-card">
+                <h3>Registrar un nuevo docente</h3>
+                <p style="color: var(--texto-suave); font-size: 0.9rem; margin-bottom: 15px;">
+                    Se crea la cuenta en Clerk con una contraseña temporal que podrás copiar al finalizar.
+                </p>
+                <form id="form-crear-mentor" class="controls-container" style="align-items: stretch;">
+                    <label for="nombre-mentor">Nombre completo</label>
+                    <input type="text" id="nombre-mentor" class="custom-input" placeholder="Ej: Ana María López" required>
+                    <label for="correo-mentor">Correo electrónico</label>
+                    <input type="email" id="correo-mentor" class="custom-input" placeholder="Ej: ana.lopez@ejemplo.com" required>
+                    <button type="submit" class="custom-button">Crear Docente</button>
+                </form>
+            </div>
+        </section>
 
-                <button type="submit" class="custom-button" style="margin-top: 15px;">Crear Docente</button>
-            </form>
+        <!-- Visualizar cuentas -->
+        <section id="tab-cuentas" class="tab-panel hidden">
+            <div class="form-card">
+                <h3>Estudiantes (<span id="count-estudiantes">0</span>)</h3>
+                <div id="lista-estudiantes" style="overflow-x: auto;"><p>Cargando...</p></div>
+            </div>
+            <div class="form-card">
+                <h3>Mentores / Docentes (<span id="count-mentores">0</span>)</h3>
+                <div id="lista-mentores" style="overflow-x: auto;"><p>Cargando...</p></div>
+            </div>
+            <div class="form-card">
+                <h3>Padres / Acudientes (<span id="count-padres">0</span>)</h3>
+                <div id="lista-padres" style="overflow-x: auto;"><p>Cargando...</p></div>
+            </div>
+        </section>
 
-            <!-- Contenedor para mostrar el resultado de la operación -->
-            <div id="admin-message" style="display: none; margin-top: 20px; font-weight: bold; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px;"></div>
-        </main>
+        <!-- Rutas de aprendizaje -->
+        <section id="tab-rutas" class="tab-panel hidden">
+            <div class="form-card">
+                <h3>Rutas de aprendizaje</h3>
+                <p style="color: var(--texto-suave); font-size: 0.9rem; margin-bottom: 15px;">
+                    Eliminar una ruta también quita las asignaciones a los estudiantes.
+                </p>
+                <div id="lista-rutas" style="overflow-x: auto;"><p>Cargando...</p></div>
+            </div>
+        </section>
+
+        <!-- Cursos / Clases -->
+        <section id="tab-cursos" class="tab-panel hidden">
+            <div class="form-card">
+                <h3>Cursos creados por docentes</h3>
+                <p style="color: var(--texto-suave); font-size: 0.9rem; margin-bottom: 15px;">
+                    Al eliminar un curso se borran sus módulos, lecciones, quizzes e inscripciones.
+                </p>
+                <div id="lista-cursos" style="overflow-x: auto;"><p>Cargando...</p></div>
+            </div>
+        </section>
+
+        <div id="admin-message" class="system-message hidden"></div>
     </div>
 
-    <!-- Script de Clerk. Recuerda reemplazar con tu clave pública -->
-    <script 
-        async crossorigin="anonymous" 
-        data-clerk-publishable-key="pk_test_c3F1YXJlLW1hbi0yLmNsZXJrLmFjY291bnRzLmRldiQ" 
+    <script
+        async crossorigin="anonymous"
+        data-clerk-publishable-key="pk_test_c3F1YXJlLW1hbi0yLmNsZXJrLmFjY291bnRzLmRldiQ"
         src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js">
     </script>
-
-    <script>
-        window.addEventListener('load', async function () {
-            await window.Clerk.load();
-
-            // Si el usuario no ha iniciado sesión, lo redirigimos a la página principal
-            if (!window.Clerk.user) {
-                window.location.href = '/index.html';
-                return;
-            }
-
-            // Mostramos el botón de perfil de Clerk con la redirección de cierre de sesión
-            const userButtonDiv = document.getElementById('user-button');
-            window.Clerk.mountUserButton(userButtonDiv, {
-                afterSignOutUrl: '/index.html'
-            });
-
-            
-            const formCrearMentor = document.getElementById('form-crear-mentor');
-            const adminMessage = document.getElementById('admin-message');
-
-            formCrearMentor.addEventListener('submit', async (e) => {
-                e.preventDefault(); // Evita que la página se recargue al enviar el formulario
-                
-                const nombre = document.getElementById('nombre-mentor').value;
-                const correo = document.getElementById('correo-mentor').value;
-                const token = await window.Clerk.session.getToken();
-
-                try {
-                    const response = await fetch('/api/crear-mentor', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        },
-                        body: JSON.stringify({ nombre: nombre, correo: correo })
-                    });
-
-                    const data = await response.json();
-                    adminMessage.style.display = 'block';
-
-                    if (response.ok) {
-                        adminMessage.innerHTML = data.mensaje;
-                        adminMessage.style.color = '#4ade80'; // Verde para éxito
-                        formCrearMentor.reset(); // Limpiamos el formulario
-                    } else {
-                        adminMessage.innerHTML = `Error: ${data.error}`;
-                        adminMessage.style.color = '#f87171'; // Rojo para error
-                    }
-                } catch (error) {
-                    console.error('Error al procesar la solicitud:', error);
-                    adminMessage.style.display = 'block';
-                    adminMessage.innerHTML = 'Error de comunicación con el servidor.';
-                    adminMessage.style.color = '#f87171';
-                }
-            });
-        });
-    </script>
+    <script src="admin.js"></script>
 </body>
 </html>
